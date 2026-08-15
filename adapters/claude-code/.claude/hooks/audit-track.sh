@@ -12,8 +12,14 @@ agent=$(printf '%s' "$payload" | sed -n 's/.*"agent_type"[[:space:]]*:[[:space:]
 # A role that self-blocked on grilling produced a QUESTION, not an artifact — there is
 # nothing to audit, and handoff.md forbids handing off while blocked. Recording a debt
 # here would penalise the role for correctly refusing to proceed on an assumption.
+#
+# Two independent signals, because neither alone is reliable: the gate file (which the
+# role is instructed to mirror, but does not always) and the role's own closing words.
+# Matched narrowly on "status: blocked" — a plan legitimately contains "Blocked by:"
+# lines for its slice edges, and those must NOT suppress a real audit debt.
 GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
 if [ -f "$GATE" ] && grep -qE 'status:[[:space:]]*blocked' "$GATE"; then exit 0; fi
+if printf '%s' "$payload" | grep -qiE '[Ss]tatus:[^"]{0,20}blocked'; then exit 0; fi
 
 touch "$STATE"
 case "$agent" in
