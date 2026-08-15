@@ -9,6 +9,12 @@ payload=$(cat)
 agent=$(printf '%s' "$payload" | sed -n 's/.*"agent_type"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
 [ -n "$agent" ] || exit 0                            # not a subagent we can identify -> nothing to do
 
+# A role that self-blocked on grilling produced a QUESTION, not an artifact — there is
+# nothing to audit, and handoff.md forbids handing off while blocked. Recording a debt
+# here would penalise the role for correctly refusing to proceed on an assumption.
+GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
+if [ -f "$GATE" ] && grep -qE 'status:[[:space:]]*blocked' "$GATE"; then exit 0; fi
+
 touch "$STATE"
 case "$agent" in
   plan|build|review)                                 # a role finished -> one more audit owed
