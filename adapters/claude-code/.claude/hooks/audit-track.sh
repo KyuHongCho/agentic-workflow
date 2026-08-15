@@ -6,7 +6,10 @@ STATE="${CLAUDE_PROJECT_DIR:-$PWD}/.audit-pending"   # one role name per line = 
 payload=$(cat)
 
 # Which subagent just finished? Claude Code supplies `agent_type` on SubagentStop.
-agent=$(printf '%s' "$payload" | sed -n 's/.*"agent_type"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+# Parse the TOP-LEVEL agent_type. A greedy sed matches the LAST "agent_type" in the
+# payload, which can be one nested inside background_tasks — that misread was the cause
+# of spurious debts attributed to roles that had not finished.
+agent=$(printf '%s' "$payload" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("agent_type") or "")' 2>/dev/null)
 [ -n "$agent" ] || exit 0                            # not a subagent we can identify -> nothing to do
 
 # A role that self-blocked on grilling produced a QUESTION, not an artifact — there is
