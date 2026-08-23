@@ -17,7 +17,7 @@ unaudited artifact; never exit `PASS` with an objection still open.
 - Builder  — `$AGENTIC_WORKFLOW_HOME/core/roles/build.md`
 - Reviewer — `$AGENTIC_WORKFLOW_HOME/core/roles/review.md`
 - Grilling (mandatory HITL gate) — `$AGENTIC_WORKFLOW_HOME/core/shared/grilling.md`
-- Handoff (between stages) — `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`
+- Handoff (stage → stage, and session → session) — `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`
 - Auditors — `$AGENTIC_WORKFLOW_HOME/core/auditors/plan-audit.md` (+ `build-audit.md`, `review-audit.md`)
 - Audit loop — `$AGENTIC_WORKFLOW_HOME/core/shared/audit-loop.md`
 - Verify (empirical checks) — `$AGENTIC_WORKFLOW_HOME/core/shared/verify.md`
