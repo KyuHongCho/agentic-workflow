@@ -16,6 +16,10 @@
 The **code changes + evidence** they work (test output, run output).
 
 ## Cross-cutting (shared skills)
+- **Ground every claim empirically per `../shared/verify.md`** — run the existing tests; where none
+  covers the claim, create a throwaway test and/or temporarily amend the code, run it, and observe.
+  **Then delete every throwaway and revert every amendment.** Report what you ran, what you created
+  or amended and removed, and the final `git status --porcelain`.
 - **When a step is ambiguous, a decision is unspecified, or reality contradicts the plan → invoke `../shared/grilling.md`.** Don't guess.
 - **When done → the changes + evidence go to `../auditors/build-audit.md` via `../shared/audit-loop.md`. Only on `PASS` invoke `../shared/handoff.md`** to pass to `review`.
 

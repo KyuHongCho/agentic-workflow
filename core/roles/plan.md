@@ -19,6 +19,10 @@ State each slice as the **end-to-end behaviour it makes work**, from the user's 
 layer-by-layer implementation list. A step that cannot be demonstrated on its own is not a slice.
 
 ## Cross-cutting (shared skills)
+- **Ground every claim empirically per `../shared/verify.md`** — run the existing tests; where none
+  covers the claim, create a throwaway test and/or temporarily amend the code, run it, and observe.
+  **Then delete every throwaway and revert every amendment.** Report what you ran, what you created
+  or amended and removed, and the final `git status --porcelain`.
 - **Cut the work per `../shared/vertical-slices.md`.** Confirm the breakdown with the human before handing off — granularity, blocking edges, what to merge or split.
 - **When anything is unclear → invoke `../shared/grilling.md`.** Never fabricate requirements.
 - **When done → the plan goes to `../auditors/plan-audit.md` via `../shared/audit-loop.md`. Only on `PASS` invoke `../shared/handoff.md`** to pass the plan to `build` (or mark `blocked` if open questions remain).

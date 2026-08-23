@@ -1,8 +1,8 @@
 # Shared skill: verify (empirical verification)
 
-How to establish a **fact** by evidence, not reasoning. Invoked by every auditor (and by the `build`
-role when producing its evidence). Tool-agnostic. Distinct from `grilling.md`, which resolves
-*decisions* with the human — this resolves *facts* against reality.
+How to establish a **fact** by evidence, not reasoning. Invoked by **every role and every auditor**
+— as `vertical-slices.md:4` and `core/README.md:8` already state. Tool-agnostic. Distinct from
+`grilling.md`, which resolves *decisions* with the human — this resolves *facts* against reality.
 
 ## Be objective
 Judge on evidence alone. Do not defer to the producer, to a previous decision, or to your own earlier
