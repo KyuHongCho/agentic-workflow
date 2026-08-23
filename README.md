@@ -36,5 +36,32 @@ export AGENTIC_WORKFLOW_HOME="/path/to/agentic-workflow"   # add to your shell p
 Shell-executed pieces (the Claude Code hook) use the tool-provided `${CLAUDE_PROJECT_DIR}` and need no setup.
 Ultimately the Claude Code adapter can ship as a plugin (`${CLAUDE_PLUGIN_ROOT}`), removing even this env var.
 
+### Automated PR review (optional)
+
+`.github/workflows/agentic-review.yml` runs `review → review-audit` on every PR, and on a
+`/agentic-review` comment. It needs two things, and **does nothing — silently, and green — without them**:
+
+```bash
+# From `claude setup-token`. Uses your Claude subscription instead of API billing.
+# Paste at gh's own prompt — do NOT use `-b/--body`, which writes the token to your
+# shell history and exposes it in `ps` while the command runs.
+gh secret set CLAUDE_CODE_OAUTH_TOKEN
+
+gh label create "Review ongoing"  -c FBCA04
+gh label create "Audit ongoing"   -c 1D76DB
+gh label create "Review finished" -c 0E8A16
+```
+
+Actions minutes are free on public repos with standard runners.
+
+## Contributing
+
+This is a personal repository demonstrating my own `plan → build → review` workflow, so **I'm not
+accepting external pull requests.** You're welcome to fork it and reuse it under the MIT licence, and
+issues are welcome if something is wrong or unclear.
+
+Every change here — including my own — goes through a pull request with green CI. `main` is
+protected with `enforce_admins`, so direct pushes are rejected even for me.
+
 ## Status
 Scaffold only (Module 0). Built step-by-step.
