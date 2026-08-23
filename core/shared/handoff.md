@@ -27,3 +27,6 @@ inputs-for-next: <what the next stage needs to start>
 - Never hand off while `status: blocked`.
 - The receiving stage must confirm it has what it needs; if not → invoke `grilling.md`.
 - Keep the record minimal — it is an index/pointer, not a copy of the artifact.
+- **Never ship.** Committing, pushing, opening a PR or merging one is not part of any stage — see
+  `shipping.md`. Handing off tells the next stage the work is ready; it is not permission to
+  publish it. Only the coordinating thread ships, and only after the human answers Q1–Q3.

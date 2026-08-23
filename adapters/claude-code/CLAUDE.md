@@ -46,3 +46,29 @@ state to the gate file**:
 - **Only the human clears the gate.** Once blocked you cannot flip it back — `Write`/`Edit`/`Bash` are all gated, by design. Do **not** route around it (subagents, alternate tools). Ask the human to clear it: `echo 'status: done' > .gate` (or the `bin/unblock` helper).
 
 While blocked you can still read, search, and ask — you just cannot change code until the human clears the gate.
+
+## Hard-enforced shipping gate (Claude Code only)
+Publishing is **not** a stage — see `$AGENTIC_WORKFLOW_HOME/core/shared/shipping.md`. A `PreToolUse`
+hook (`.claude/hooks/ship-gate.sh`) intercepts `git commit` / `git push`,
+`gh pr create|merge|ready`, `gh release create`, and write calls to `gh api`:
+
+- **Inside a role or auditor subagent → blocked outright (exit 2).** These agents have no
+  user-facing tool, so they can never obtain consent. The subagent reports its artifact and hands
+  back — that hand-back is the correct behaviour, not a failure.
+- **In the main thread → routed to your approval prompt.** You are the gate. In a permission mode
+  that would not actually prompt (`bypassPermissions`, `dontAsk`) it hard-blocks instead, because
+  an unshown prompt is not consent.
+
+**You (the main thread) own the consent sequence.** After a slice reaches `build-audit` PASS, run
+Q1 → Q2 → Q3 from `shipping.md`, **one question at a time**: propose a one-line commit message
+derived from the staged diff and ask whether to commit; report whether an upstream is set and ask
+whether to push; ask whether to open the PR and, if yes, run the `open-pr` skill. Never bundle the
+questions, and never treat "build this" as consent to publish it.
+
+Read-only forms (`git status`, `git diff`, `git log`, `git push --dry-run`, `gh pr view|checks`)
+pass through untouched. Local-only `git tag` / `git merge` are deliberately not gated: they publish
+nothing, and the push they would need is gated.
+
+**This gate fails OPEN if its script is missing** — a broken `.claude/hooks` symlink makes the hook
+exit 127, which does not block. After installing, and after ever moving this repo, run:
+`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (14/14)`.
