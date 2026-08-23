@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Shell scripts parse
+        # Catches syntax errors in the hooks. A hook that fails to parse exits
+        # non-zero at load time, which for gate-check/ship-gate means the gate
+        # silently fails OPEN — so this is a real safety check, not lint.
+        run: |
+          for f in $(git ls-files '*.sh') adapters/claude-code/bin/unblock; do
+            bash -n "$f"
+          done
+
+      - name: settings.json is valid JSON
+        # A malformed settings.json means Claude Code loads no hooks at all.
+        run: python3 -c "import json; json.load(open('adapters/claude-code/.claude/settings.json'))"
+
+      - name: ship-gate self-test
+        # 14 cases: ask / block / pass. The gate fails OPEN if its file is
+        # missing or broken, so this self-test is how we know it is live.
+        run: bash adapters/claude-code/.claude/hooks/ship-gate.selftest.sh
