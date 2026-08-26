@@ -1,0 +1,211 @@
+name: Agentic Review
+
+# Runs the repo's own `review` -> `review-audit` loop against a pull request.
+#
+# Two entry points:
+#   * pull_request  — a review when a PR is opened, reopened or marked ready.
+#     `synchronize` (every push) IS listed, but only so a run exists to CLEAR the labels;
+#     it never starts a review, or an active PR would re-run the whole loop per commit.
+#     Re-review on demand with `/agentic-review`.
+#   * issue_comment — a human types `/agentic-review` in the PR's Conversation tab.
+#     NOTE: issue_comment only fires from the workflow file on the DEFAULT branch, and its
+#     GITHUB_SHA is the default branch's last commit — NOT the PR. Every job therefore
+#     checks out `refs/pull/<n>/merge` explicitly, or it would review main instead of the PR.
+#
+# Ordering is by `needs:`, not by waiting on a label event: `review-audit` starts only once
+# `review` has finished, deterministically, with no event round-trip to lose or re-fire.
+# Labels are display only — Review ongoing -> Audit ongoing -> Review finished.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  # A new push supersedes an in-flight review, cancelling it. The same push then runs the
+  # gate's `synchronize` branch, which clears every label — so a cancelled run cannot leave
+  # a label claiming a review that no longer exists.
+  group: agentic-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write          # PR conversation comments are issue comments (labels + reactions)
+  id-token: write
+
+env:
+  # `gate` and `finalize` run without a checkout, so `gh` has no git remote to infer the
+  # repo from and dies with "not a git repository" — which `|| true` then swallows, leaving
+  # a green job that silently did nothing. Observed on run 32945248143. Set it for every job.
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      pr: ${{ steps.decide.outputs.pr }}
+    steps:
+      - id: decide
+        # Every piece of event data arrives as an env var, never interpolated into the script.
+        # A comment body is attacker-controlled text; `${{ }}` would splice it into the shell.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ github.event.comment.body }}
+          IS_PR: ${{ github.event.issue.pull_request.url }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          CID: ${{ github.event.comment.id }}
+          PR_EVT: ${{ github.event.pull_request.number }}
+          ISSUE_NO: ${{ github.event.issue.number }}
+          ASSOC: ${{ github.event.comment.author_association }}
+          HAVE_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # A push invalidates a completed review. Clear the labels so they cannot claim a
+          # review that no longer matches the code — but do NOT re-run the agents; that is
+          # what `/agentic-review` is for. This is the only reason `synchronize` is in the
+          # trigger list: it creates a run, and this branch ends it cheaply. Placed before
+          # the key check because label hygiene does not depend on the token.
+          if [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "synchronize" ]; then
+            gh pr edit "$PR_EVT" --remove-label "Review ongoing" \
+              --remove-label "Audit ongoing" --remove-label "Review finished" || true
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Without the key the action cannot run. Stand down quietly rather than fail red on
+          # every PR — this workflow is merged before the secret exists. `secrets` is not
+          # available to a job-level `if:`, so the check has to live here in a step.
+          if [ "$HAVE_KEY" != "true" ]; then
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN is not set — agentic review skipped."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "pr=$PR_EVT" >> "$GITHUB_OUTPUT"
+          # `issue.pull_request` is present only when the comment is on a PR, per GitHub's
+          # documented way to tell PR comments from issue comments.
+          # The trailing class mirrors claude-code-action's own trigger regex
+          # (src/github/validation/trigger.ts) so `/agentic-review, please` still fires.
+          # Only a write-level author may trigger a run. claude-code-action rejects
+          # non-write actors itself, but that happens AFTER this job has already reacted and
+          # labelled — which would leave a red run and a stranded label on a public repo.
+          elif [ -n "$IS_PR" ] \
+               && printf '%s' "$ASSOC" | grep -qxE 'OWNER|MEMBER|COLLABORATOR' \
+               && printf '%s' "$BODY" \
+               | grep -qiE '(^|[[:space:]])/agentic-review([[:space:].,!?;:]|$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "pr=$ISSUE_NO" >> "$GITHUB_OUTPUT"
+            # Acknowledge the trigger. Best-effort: never fail the run over an emoji.
+            gh api -X POST "repos/$REPO/issues/comments/$CID/reactions" -f content=eyes \
+              || echo "::warning::could not add the eye reaction (non-fatal)"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  review:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ needs.gate.outputs.pr }}/merge
+          fetch-depth: 0
+      - name: Label — review starting
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "${{ needs.gate.outputs.pr }}" \
+            --add-label "Review ongoing" --remove-label "Review finished" || true
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: --max-turns 40
+          prompt: |
+            You are the `review` role. Follow, from this checkout:
+              core/roles/review.md      — what to produce
+              core/shared/verify.md     — how to ground each finding, and revert every throwaway
+            REPO: ${{ github.repository }}   PR: ${{ needs.gate.outputs.pr }}
+
+            Post exactly ONE pull request comment. For every finding give:
+              * the file path and line number
+              * before/after code
+              * why it matters
+            End the comment with a "Verification process" section stating which tests you ran,
+            any throwaway test or temporary amendment you made and removed, and the final
+            `git status --porcelain`. A finding you could not ground, mark as unverified.
+
+  review-audit:
+    needs: [gate, review]
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ needs.gate.outputs.pr }}/merge
+          fetch-depth: 0
+      - name: Label — audit starting
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "${{ needs.gate.outputs.pr }}" \
+            --add-label "Audit ongoing" --remove-label "Review ongoing" || true
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: --max-turns 40
+          prompt: |
+            You are the `review-audit` auditor. Follow, from this checkout:
+              core/auditors/review-audit.md — the criteria, including the two passes
+              core/shared/verify.md         — how to ground each objection
+            REPO: ${{ github.repository }}   PR: ${{ needs.gate.outputs.pr }}
+
+            Pass 1 is BLIND. Form your own findings from the diff BEFORE you read the
+            reviewer's comment; reading it first anchors you, and blind spots are what this
+            pass exists to catch. Only then open the review and compare.
+
+            Then EDIT the reviewer's existing comment in place (do not post a second one):
+              * if something is wrong, correct it and say what was wrong
+              * if nothing is wrong, say so and explain why each finding holds
+            Append a "Re-verification process" section: what you re-ran, what you amended and
+            reverted, and the final `git status --porcelain`.
+
+  # A label must never outlive the run that set it. Proven necessary, not hypothetical:
+  # on run 32675078939 the `review` job failed, so `review-audit` was skipped -- and a
+  # skipped job runs ZERO steps, so its cleanup never ran and `Review ongoing` stranded
+  # on the PR. `if: always()` on a step inside review-audit also mislabelled a FAILED
+  # audit as `Review finished`. This job depends on all three, runs whatever happened,
+  # and is the single owner of the terminal label.
+  finalize:
+    needs: [gate, review, review-audit]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ needs.gate.outputs.pr }}
+          REVIEW: ${{ needs.review.result }}
+          AUDIT: ${{ needs.review-audit.result }}
+        run: |
+          set -euo pipefail
+          if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ]; then
+            gh pr edit "$PR" --add-label "Review finished" \
+              --remove-label "Review ongoing" --remove-label "Audit ongoing" || true
+          else
+            # Failed, cancelled or timed out: leave NO label rather than one claiming a
+            # review that did not complete.
+            echo "::warning::review=$REVIEW audit=$AUDIT — clearing labels, no review claimed."
+            gh pr edit "$PR" --remove-label "Review ongoing" \
+              --remove-label "Audit ongoing" --remove-label "Review finished" || true
+          fi

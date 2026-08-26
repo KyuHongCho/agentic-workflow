@@ -18,6 +18,10 @@
 **Review findings:** PASS/FAIL + issues (each with location + reason).
 
 ## Cross-cutting (shared skills)
+- **Ground every claim empirically per `../shared/verify.md`** — run the existing tests; where none
+  covers the claim, create a throwaway test and/or temporarily amend the code, run it, and observe.
+  **Then delete every throwaway and revert every amendment.** Report what you ran, what you created
+  or amended and removed, and the final `git status --porcelain`.
 - **When acceptance criteria or intended behaviour are unclear → invoke `../shared/grilling.md`.**
 - **When done → the findings go to `../auditors/review-audit.md` via `../shared/audit-loop.md`. Only on `PASS` invoke `../shared/handoff.md`** to return findings to the human (and to `build` for fixes if FAIL).
 
