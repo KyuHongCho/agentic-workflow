@@ -173,10 +173,33 @@ jobs:
               * if nothing is wrong, say so and explain why each finding holds
             Append a "Re-verification process" section: what you re-ran, what you amended and
             reverted, and the final `git status --porcelain`.
-      - name: Label — finished
-        if: always()
-        env:
+
+  # A label must never outlive the run that set it. Proven necessary, not hypothetical:
+  # on run 32675078939 the `review` job failed, so `review-audit` was skipped -- and a
+  # skipped job runs ZERO steps, so its cleanup never ran and `Review ongoing` stranded
+  # on the PR. `if: always()` on a step inside review-audit also mislabelled a FAILED
+  # audit as `Review finished`. This job depends on all three, runs whatever happened,
+  # and is the single owner of the terminal label.
+  finalize:
+    needs: [gate, review, review-audit]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
           GH_TOKEN: ${{ github.token }}
+          PR: ${{ needs.gate.outputs.pr }}
+          REVIEW: ${{ needs.review.result }}
+          AUDIT: ${{ needs.review-audit.result }}
         run: |
-          gh pr edit "${{ needs.gate.outputs.pr }}" \
-            --add-label "Review finished" --remove-label "Audit ongoing" || true
+          set -euo pipefail
+          if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ]; then
+            gh pr edit "$PR" --add-label "Review finished" \
+              --remove-label "Review ongoing" --remove-label "Audit ongoing" || true
+          else
+            # Failed, cancelled or timed out: leave NO label rather than one claiming a
+            # review that did not complete.
+            echo "::warning::review=$REVIEW audit=$AUDIT — clearing labels, no review claimed."
+            gh pr edit "$PR" --remove-label "Review ongoing" \
+              --remove-label "Audit ongoing" --remove-label "Review finished" || true
+          fi
