@@ -35,6 +35,12 @@ permissions:
   issues: write          # PR conversation comments are issue comments (labels + reactions)
   id-token: write
 
+env:
+  # `gate` and `finalize` run without a checkout, so `gh` has no git remote to infer the
+  # repo from and dies with "not a git repository" — which `|| true` then swallows, leaving
+  # a green job that silently did nothing. Observed on run 32945248143. Set it for every job.
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   gate:
     runs-on: ubuntu-latest
