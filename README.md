@@ -1,5 +1,7 @@
 # Agentic Workflow (generic · tool-agnostic)
 
+[![CI](https://github.com/KyuHongCho/agentic-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/KyuHongCho/agentic-workflow/actions/workflows/ci.yml)
+
 A personal, tool-agnostic system for a **human-in-the-loop, adversarially-audited**
 `plan → build → review` loop. Names are deliberately generic (no employer terms).
 
