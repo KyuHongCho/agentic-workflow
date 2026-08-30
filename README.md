@@ -10,9 +10,9 @@ A personal, tool-agnostic system for a **human-in-the-loop, adversarially-audite
 - **`core/`** — Portable **Markdown**: role definitions, auditor criteria, the grilling
   protocol, checklists. **Tool-agnostic** — any coding agent can read it.
 - **`adapters/`** — Thin per-tool glue that points one tool at `core/` (no logic of its own):
-  - `claude-code/` — `CLAUDE.md` + `.claude/skills/` + subagents + hooks (hard-enforced gates)
-  - `codex/` — `AGENTS.md` (soft gate: strong instruction, not a mechanical block)
-  - `gemini/` — `GEMINI.md` / extension
+  - `agents-md/` — one `AGENTS.md` → Codex, Cursor and others read it natively (soft gate: instruction, not a mechanical block)
+  - `claude-code/` — `CLAUDE.md` + `.claude/skills/` + subagents + hooks (hard-enforced gates — the one tool offering more than instructions)
+  - `gemini/` — a one-line `GEMINI.md` pointing at `AGENTS.md`, which Gemini CLI does not read by default
 - **`mcp/`** — MCP servers = executable capabilities that work across MCP-capable tools.
 
 ## The loop (generic naming)
@@ -36,6 +36,11 @@ export AGENTIC_WORKFLOW_HOME="/path/to/agentic-workflow"   # add to your shell p
 ```
 
 Shell-executed pieces (the Claude Code hook) use the tool-provided `${CLAUDE_PROJECT_DIR}` and need no setup.
+
+Adapters must still be **installed at the project root** — the directory the tool is started in. A
+missing install fails **silently and open**. Per-adapter install steps:
+[`adapters/claude-code/`](adapters/claude-code/README.md) · [`adapters/README.md`](adapters/README.md).
+
 Ultimately the Claude Code adapter can ship as a plugin (`${CLAUDE_PLUGIN_ROOT}`), removing even this env var.
 
 ### Automated PR review (optional)

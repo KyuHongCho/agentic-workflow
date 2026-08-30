@@ -72,3 +72,15 @@ nothing, and the push they would need is gated.
 **This gate fails OPEN if its script is missing** — a broken `.claude/hooks` symlink makes the hook
 exit 127, which does not block. After installing, and after ever moving this repo, run:
 `bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (14/14)`.
+
+**It also fails open if it is never wired.** Hooks load from the **project root's**
+`.claude/settings.json` — the directory Claude Code was started in. A repo's own `.claude/` is inert
+unless that repo *is* the project root: open a parent directory instead and every hook here is
+silently inactive, with the `CLAUDE.md` instructions still loading normally. You get the rules
+without the enforcement. `ship-gate.selftest.sh` cannot detect this — it tests the script, not
+whether it is registered — so check `.claude/settings.json` exists at the directory you started in.
+
+**Editing `ship-gate.sh` can lock out Bash.** A shell syntax error makes it exit 2, which blocks the
+tool call, so *every* Bash call fails while the file is broken (the matcher is `Bash`). `Edit`/`Write`
+still work — only `gate-check.sh` matches those — so repair it with the editor, or from a plain
+terminal outside Claude Code.
