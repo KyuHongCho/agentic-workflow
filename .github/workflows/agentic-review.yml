@@ -115,6 +115,12 @@ jobs:
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      # The ACTION's own verdict, which is NOT the same as the job's result. On a workflow-
+      # validation skip claude-code-action returns at run.ts:182 — before run.ts:315 ever
+      # sets this — so it is empty while the job still reports success. Observed live on
+      # PR #5: both agent jobs green in ~20s, zero review posted.
+      conclusion: ${{ steps.agent.outputs.conclusion }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -126,10 +132,21 @@ jobs:
         run: |
           gh pr edit "${{ needs.gate.outputs.pr }}" \
             --add-label "Review ongoing" --remove-label "Review finished" || true
-      - uses: anthropics/claude-code-action@v1
+      - id: agent
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: --max-turns 40
+          # Agent mode (which `prompt:` selects) installs NO comment MCP server and grants
+          # NO tools unless they are named here -- see install-mcp-server.ts:114 and
+          # modes/agent/index.ts:16-18. Without this the agent is told to "post a comment"
+          # while holding no tool that can post one, which is why PR #5's Conversation tab
+          # stayed empty. Read/Write/Edit + a test runner are what verify.md:14,19-20
+          # requires: run the tests, add a throwaway one, then delete it and revert.
+          # Deliberately NOT granted: `git push`, `gh pr merge/close`, `gh api`, `gh secret`,
+          # network fetchers. A reviewer needs to read, run and comment -- nothing else.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Read,Grep,Glob,Write,Edit,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git restore:*),Bash(git checkout:*),Bash(git clean:*),Bash(rm:*),Bash(ls:*),Bash(cat:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(bash:*),Bash(sh:*)"
           prompt: |
             You are the `review` role. Follow, from this checkout:
               core/roles/review.md      — what to produce
@@ -149,6 +166,12 @@ jobs:
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      # The ACTION's own verdict, which is NOT the same as the job's result. On a workflow-
+      # validation skip claude-code-action returns at run.ts:182 — before run.ts:315 ever
+      # sets this — so it is empty while the job still reports success. Observed live on
+      # PR #5: both agent jobs green in ~20s, zero review posted.
+      conclusion: ${{ steps.agent.outputs.conclusion }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -160,10 +183,21 @@ jobs:
         run: |
           gh pr edit "${{ needs.gate.outputs.pr }}" \
             --add-label "Audit ongoing" --remove-label "Review ongoing" || true
-      - uses: anthropics/claude-code-action@v1
+      - id: agent
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: --max-turns 40
+          # Agent mode (which `prompt:` selects) installs NO comment MCP server and grants
+          # NO tools unless they are named here -- see install-mcp-server.ts:114 and
+          # modes/agent/index.ts:16-18. Without this the agent is told to "post a comment"
+          # while holding no tool that can post one, which is why PR #5's Conversation tab
+          # stayed empty. Read/Write/Edit + a test runner are what verify.md:14,19-20
+          # requires: run the tests, add a throwaway one, then delete it and revert.
+          # Deliberately NOT granted: `git push`, `gh pr merge/close`, `gh api`, `gh secret`,
+          # network fetchers. A reviewer needs to read, run and comment -- nothing else.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Read,Grep,Glob,Write,Edit,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git restore:*),Bash(git checkout:*),Bash(git clean:*),Bash(rm:*),Bash(ls:*),Bash(cat:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(bash:*),Bash(sh:*)"
           prompt: |
             You are the `review-audit` auditor. Follow, from this checkout:
               core/auditors/review-audit.md — the criteria, including the two passes
@@ -174,11 +208,14 @@ jobs:
             reviewer's comment; reading it first anchors you, and blind spots are what this
             pass exists to catch. Only then open the review and compare.
 
-            Then EDIT the reviewer's existing comment in place (do not post a second one):
+            Then post a SECOND pull request comment of your own, below the reviewer's.
+            Do NOT edit or delete theirs: the original review and your corrections must
+            both stay visible, or there is no record of what the audit actually caught.
+            Open with a one-line verdict, then:
               * if something is wrong, correct it and say what was wrong
               * if nothing is wrong, say so and explain why each finding holds
-            Append a "Re-verification process" section: what you re-ran, what you amended and
-            reverted, and the final `git status --porcelain`.
+            End with a "Re-verification process" section: what you re-ran, what you
+            amended and reverted, and the final `git status --porcelain`.
 
   # A label must never outlive the run that set it. Proven necessary, not hypothetical:
   # on run 32675078939 the `review` job failed, so `review-audit` was skipped -- and a
@@ -197,15 +234,20 @@ jobs:
           PR: ${{ needs.gate.outputs.pr }}
           REVIEW: ${{ needs.review.result }}
           AUDIT: ${{ needs.review-audit.result }}
+          REVIEW_CONC: ${{ needs.review.outputs.conclusion }}
+          AUDIT_CONC: ${{ needs.review-audit.outputs.conclusion }}
         run: |
           set -euo pipefail
-          if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ]; then
+          # A job can succeed without reviewing anything: claude-code-action exits 0
+          # when it declines and returns before setting `conclusion`.
+          if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ] \
+             && [ "$REVIEW_CONC" = "success" ] && [ "$AUDIT_CONC" = "success" ]; then
             gh pr edit "$PR" --add-label "Review finished" \
               --remove-label "Review ongoing" --remove-label "Audit ongoing" || true
           else
             # Failed, cancelled or timed out: leave NO label rather than one claiming a
             # review that did not complete.
-            echo "::warning::review=$REVIEW audit=$AUDIT — clearing labels, no review claimed."
+            echo "::warning::review=$REVIEW(conclusion=${REVIEW_CONC:-unset}) audit=$AUDIT(conclusion=${AUDIT_CONC:-unset}) — no review claimed; clearing labels."
             gh pr edit "$PR" --remove-label "Review ongoing" \
               --remove-label "Audit ongoing" --remove-label "Review finished" || true
           fi
