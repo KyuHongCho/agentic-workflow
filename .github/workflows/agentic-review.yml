@@ -160,6 +160,18 @@ jobs:
             End the comment with a "Verification process" section stating which tests you ran,
             any throwaway test or temporary amendment you made and removed, and the final
             `git status --porcelain`. A finding you could not ground, mark as unverified.
+      # The workflow log reports `permission_denials_count` but never WHICH calls were denied,
+      # so a too-narrow --allowedTools can only be widened by guesswork. The action writes the
+      # turn-by-turn transcript to ${runner.temp}/claude-execution-output.json; upload it so the
+      # denied calls can be read off one run instead of inferred over several at ~$1 each.
+      # `if: always()` because the interesting case is the failing run.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-execution-output-review
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: warn
+          retention-days: 7
 
   review-audit:
     needs: [gate, review]
@@ -216,6 +228,15 @@ jobs:
               * if nothing is wrong, say so and explain why each finding holds
             End with a "Re-verification process" section: what you re-ran, what you
             amended and reverted, and the final `git status --porcelain`.
+      # Same transcript upload as the review job -- see the comment there. The artifact name
+      # must differ or the two jobs collide on upload.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-execution-output-review-audit
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: warn
+          retention-days: 7
 
   # A label must never outlive the run that set it. Proven necessary, not hypothetical:
   # on run 32675078939 the `review` job failed, so `review-audit` was skipped -- and a
