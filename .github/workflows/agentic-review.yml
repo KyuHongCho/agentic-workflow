@@ -131,13 +131,26 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # A push invalidates any earlier review: nobody has reviewed the new commit. The labels
-      # are cleared above, but a label is not a check -- and statuses are per-SHA, so the new
-      # SHA starts with NO `agentic-review` context and the PR reads "All checks have passed"
-      # on code no agent has seen. Measured on PR #3: heads 7c9c1a0, 50f2be6 and 56546b5 each
-      # carry zero statuses. `pending`, not `failure`: unreviewed is not broken. The SHA comes
-      # from the event payload -- verified equal to the pushed tip on four runs -- so there is
-      # no API call here that can fail.
+      # A push invalidates any earlier review: nobody has reviewed the new commit. A label is
+      # not a check, and statuses are per-SHA, so the new SHA starts with NO `agentic-review`
+      # context. The SKIPPED `review`/`review-audit`/`finalize` check runs do NOT cover this:
+      # measured with the GraphQL statusCheckRollup on three commits carrying an identical set
+      # of five check runs, where the only variable is this status --
+      #     56546b5  no status       -> ROLLUP STATE = SUCCESS   <- green, nothing reviewed it
+      #     b356665  status pending  -> ROLLUP STATE = PENDING   <- "Waiting for status..."
+      #     cf1edb3  status failure  -> ROLLUP STATE = FAILURE
+      # so without a status here the PR reads "All checks have passed" on unreviewed code.
+      #
+      # `failure`, NOT `pending`. This is the only status writer whose condition is the INVERSE
+      # of `finalize`'s (`run == 'false'` vs `always() && run == 'true'`), so nothing in this
+      # workflow can ever resolve what it posts. A non-terminal state with no resolver renders
+      # as "Waiting for status to be reported" -- indistinguishable from a hung check, which is
+      # exactly how it was read. `failure` is terminal: it needs no resolver, and `finalize`
+      # overwrites it the moment a real review completes. It also matches the wording
+      # `finalize` already uses for "no review claimed".
+      #
+      # The SHA comes from the event payload -- verified equal to the pushed tip on four runs
+      # -- so there is no API call here that can fail.
       - name: Mark the new commit unreviewed
         if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
         continue-on-error: true
@@ -146,8 +159,8 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
-            -f state=pending -f context="agentic-review" \
-            -f description="new commit — not reviewed; run /agentic-review" || true
+            -f state=failure -f context="agentic-review" \
+            -f description="not reviewed — run /agentic-review on this commit" || true
 
       # `finalize` writes the terminal status only at the END, so for the whole 4-15 min a
       # review takes the PR again carried no context: on PR #3 the review ran 02:56:22-03:00:04
