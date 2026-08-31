@@ -40,8 +40,15 @@ Ultimately the Claude Code adapter can ship as a plugin (`${CLAUDE_PLUGIN_ROOT}`
 
 ### Automated PR review (optional)
 
-`.github/workflows/agentic-review.yml` runs `review → review-audit` on every PR, and on a
-`/agentic-review` comment. It needs two things, and **does nothing — silently, and green — without them**:
+`.github/workflows/agentic-review.yml` runs `review → review-audit → finalize` when a PR is
+**opened**, reopened or marked ready, and whenever anyone with write access comments
+**`/agentic-review`**.
+
+**A plain push does not re-review.** The three jobs report `Skipped`, on purpose: a full loop
+costs a real review each time (measured: ~$2.26 and ~12 min), so re-running it on every commit
+would be expensive and noisy. Ask for one with `/agentic-review` when the change is ready.
+
+It needs two things, and **does nothing — silently, and green — without them**:
 
 ```bash
 # From `claude setup-token`. Uses your Claude subscription instead of API billing.
