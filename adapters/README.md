@@ -29,7 +29,8 @@ Claude Code needs more than a file; see [`claude-code/README.md`](claude-code/RE
 > above symlinks `AGENTS.md` into *this* repo, so an `@./AGENTS.md` import loaded
 > `<!-- Import failed: ./AGENTS.md - Path traversal attempt -->` — 61 bytes — in place of the
 > rules, silently. Pointing `GEMINI.md` at the file directly carries no import, so nothing is
-> validated: 1705 bytes load on every version tested. A symlink *committed to this repo* would
+> validated: the whole file loads on every version tested — 1743 bytes, which the loader reports
+> as 1705 characters because 19 of them are non-ASCII. A symlink *committed to this repo* would
 > have the same effect on Unix but degrade to a plain file holding a path string on any
 > `core.symlinks=false` checkout, so the symlink is made at install time instead. See the
 > [GEMINI.md docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md)

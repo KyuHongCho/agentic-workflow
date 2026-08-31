@@ -43,7 +43,9 @@ A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.jso
 state to the gate file**:
 
 - **When grilling raises an open question** → write `status: blocked` to `${CLAUDE_PROJECT_DIR}/.gate`, then ask the human. (You can — you are not yet blocked.)
-- **Only the human clears the gate.** Once blocked you cannot flip it back — `Write`/`Edit`/`Bash` are all gated, by design. Do **not** route around it (subagents, alternate tools). Ask the human to clear it: `echo 'status: done' > .gate` (or the `bin/unblock` helper).
+- **Only the human clears the gate.** Once blocked you cannot flip it back — `Write`/`Edit`/`Bash` are all gated, by design. Do **not** route around it (subagents, alternate tools). Ask the human to clear it: `echo 'status: done' > .gate` (or
+`$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/unblock`, which does the same thing — the install
+in `README.md` does not symlink `bin/`, so there is no `bin/unblock` at the project root).
 
 While blocked you can still read, search, and ask — you just cannot change code until the human clears the gate.
 
