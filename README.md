@@ -12,7 +12,7 @@ A personal, tool-agnostic system for a **human-in-the-loop, adversarially-audite
 - **`adapters/`** — Thin per-tool glue that points one tool at `core/` (no logic of its own):
   - `agents-md/` — one `AGENTS.md` → Codex, Cursor and others read it natively (soft gate: instruction, not a mechanical block)
   - `claude-code/` — `CLAUDE.md` + `.claude/skills/` + subagents + hooks (hard-enforced gates — the one tool offering more than instructions)
-  - `gemini/` — a one-line `GEMINI.md` pointing at `AGENTS.md`, which Gemini CLI does not read by default
+  - Gemini CLI — no adapter of its own: a `GEMINI.md` symlink to the same `agents-md/AGENTS.md`, since it does not read `AGENTS.md` by default
 - **`mcp/`** — MCP servers = executable capabilities that work across MCP-capable tools.
 
 ## The loop (generic naming)

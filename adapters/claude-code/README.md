@@ -14,7 +14,7 @@ ln -s "$ADP/.claude/hooks"         .claude/hooks
 ln -s "$ADP/.claude/skills"        .claude/skills
 ln -s "$ADP/agents"                .claude/agents      # agents sits BESIDE .claude, not inside it
 ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
-printf '.claude/\nCLAUDE.local.md\n.gate\n.audit-pending\n' >> .git/info/exclude
+[ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.audit-pending\n' >> .git/info/exclude
 bash .claude/hooks/ship-gate.selftest.sh      # expect ALL PASS (14/14)
 ```
 
