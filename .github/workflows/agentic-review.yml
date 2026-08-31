@@ -1,20 +1,18 @@
 name: Agentic Review
 
-# Runs the repo's own `review` -> `review-audit` loop against a pull request.
+# Runs this repo's `review` -> `review-audit` loop on a pull request.
 #
-# Two entry points:
-#   * pull_request  — a review when a PR is opened, reopened or marked ready.
-#     `synchronize` (every push) IS listed, but only so a run exists to CLEAR the labels;
-#     it never starts a review, or an active PR would re-run the whole loop per commit.
-#     Re-review on demand with `/agentic-review`.
-#   * issue_comment — a human types `/agentic-review` in the PR's Conversation tab.
-#     NOTE: issue_comment only fires from the workflow file on the DEFAULT branch, and its
-#     GITHUB_SHA is the default branch's last commit — NOT the PR. Every job therefore
-#     checks out `refs/pull/<n>/merge` explicitly, or it would review main instead of the PR.
+# Two ways in:
+#   * pull_request  — reviews a PR when it is opened, reopened or marked ready. A push
+#     (`synchronize`) is listed too, but ONLY to clear labels; it never starts a review,
+#     or an active PR would re-run the whole loop on every commit.
+#   * issue_comment — someone types `/agentic-review` on the PR. That fires the DEFAULT
+#     branch's copy of this file, and its GITHUB_SHA is main's tip, NOT the PR — which is
+#     why `review` and `review-audit` check out `refs/pull/<n>/merge` explicitly.
 #
-# Ordering is by `needs:`, not by waiting on a label event: `review-audit` starts only once
-# `review` has finished, deterministically, with no event round-trip to lose or re-fire.
-# Labels are display only — Review ongoing -> Audit ongoing -> Review finished.
+# Order comes from `needs:`, not from label events. Labels are display only.
+# Each rule below was measured, not assumed. The commit that introduced it carries the
+# evidence — run IDs, API output — so `git log` on this file is the reference.
 
 on:
   pull_request:
@@ -27,14 +25,10 @@ concurrency:
   # gate's `synchronize` branch, which clears every label — so a cancelled run cannot leave
   # a label claiming a review that no longer exists.
   group: agentic-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  # ONLY a push may cancel. The reviewer posts its verdict as a PR comment as claude[bot] --
-  # a GitHub App token, which DOES create a run (GITHUB_TOKEN would not) -- and that run lands
-  # in this same group, so a bare `true` made the reviewer cancel the run that posted it, 1.5s
-  # after it finished. Run 33352215846 died at 03:00:00.94 ("The operation was canceled")
-  # having ALREADY set conclusion=success, so review-audit never started; 33352392606 was
-  # queued 02:59:59 by claude[bot]. Keying the GROUP on event_name does NOT fix this -- both
-  # runs are `issue_comment`, so they still collide, and a push would stop superseding.
-  # An `issue_comment` run now queues instead; its gate returns run=false in ~5s.
+  # ONLY a push may cancel. The reviewer posts its verdict as a comment, and that comment
+  # starts another run in this same group — so a bare `true` made the reviewer cancel the very
+  # run that posted it, before review-audit could start. Comment runs now queue instead.
+  # Putting the event name in the GROUP does not help: both runs are `issue_comment`.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -42,24 +36,20 @@ permissions:
   pull-requests: write
   issues: write          # PR conversation comments are issue comments (labels + reactions)
   id-token: write
-# `statuses: write` is deliberately NOT here. It is granted to `finalize` alone, at job level —
-# see that job. Granting it workflow-wide would hand it to both agent jobs, and a reviewer able
-# to post a commit status could mark its own review green.
+# `statuses: write` is deliberately NOT here. It is granted per job, and only to jobs that
+# run no agent — a reviewer able to post its own status could mark its own review green.
 
 env:
-  # `gate` and `finalize` run without a checkout, so `gh` has no git remote to infer the
-  # repo from and dies with "not a git repository" — which `|| true` then swallows, leaving
-  # a green job that silently did nothing. Observed on run 32945248143. Set it for every job.
+  # `gate` and `finalize` never check out the repo, so `gh` cannot tell which repo it is in
+  # and fails — which `|| true` then hides, leaving a green job that did nothing.
   GH_REPO: ${{ github.repository }}
 
 jobs:
   gate:
     runs-on: ubuntu-latest
-    # Job-level permissions REPLACE the workflow-level set, so everything this job calls is
-    # listed here. Like `finalize`, this job runs NO agent -- which is why it may hold
-    # `statuses: write`. `id-token: write` is dropped: gate uses no OIDC. The three inherited
-    # scopes are unchanged, and the eyes reaction is known to work under them (it landed on
-    # comment 5473122653 at 02:56:18Z).
+    # Job-level permissions REPLACE the workflow-level set, so everything this job calls must
+    # be listed here. This job runs NO agent, which is why it may hold `statuses: write`;
+    # and it uses no OIDC, so the workflow-level `id-token` is not repeated here.
     permissions:
       contents: read
       pull-requests: write   # gh pr edit --remove-label (the synchronize branch)
@@ -87,11 +77,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # A push invalidates a completed review. Clear the labels so they cannot claim a
-          # review that no longer matches the code — but do NOT re-run the agents; that is
-          # what `/agentic-review` is for. This is the only reason `synchronize` is in the
-          # trigger list: it creates a run, and this branch ends it cheaply. Placed before
-          # the key check because label hygiene does not depend on the token.
+          # A push invalidates any earlier review, so clear the labels — but do NOT re-run the
+          # agents; that is what `/agentic-review` is for. This is the only reason `synchronize`
+          # is a trigger. It sits before the key check because clearing labels needs no token.
           if [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "synchronize" ]; then
             gh pr edit "$PR_EVT" --remove-label "Review ongoing" \
               --remove-label "Audit ongoing" --remove-label "Review finished" || true
@@ -111,13 +99,10 @@ jobs:
           if [ "$EVENT" = "pull_request" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo "pr=$PR_EVT" >> "$GITHUB_OUTPUT"
-          # `issue.pull_request` is present only when the comment is on a PR, per GitHub's
-          # documented way to tell PR comments from issue comments.
-          # The trailing class mirrors claude-code-action's own trigger regex
-          # (src/github/validation/trigger.ts) so `/agentic-review, please` still fires.
-          # Only a write-level author may trigger a run. claude-code-action rejects
-          # non-write actors itself, but that happens AFTER this job has already reacted and
-          # labelled — which would leave a red run and a stranded label on a public repo.
+          # `issue.pull_request` exists only on PR comments — that is how GitHub tells them from
+          # plain issue comments. The trailing character class lets `/agentic-review, please`
+          # fire too. Only a write-level author may trigger: the action would reject others
+          # itself, but not before this job had already reacted and labelled.
           elif [ -n "$IS_PR" ] \
                && printf '%s' "$ASSOC" | grep -qxE 'OWNER|MEMBER|COLLABORATOR' \
                && printf '%s' "$BODY" \
@@ -131,45 +116,15 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # A push invalidates any earlier review: nobody has reviewed the new commit. A label is
-      # not a check, and statuses are per-SHA, so the new SHA starts with NO `agentic-review`
-      # context. The SKIPPED `review`/`review-audit`/`finalize` check runs do NOT cover this:
-      # measured with the GraphQL statusCheckRollup on three commits carrying an identical set
-      # of five check runs, where the only variable is this status --
-      #     56546b5  no status       -> ROLLUP STATE = SUCCESS   <- green, nothing reviewed it
-      #     b356665  status pending  -> ROLLUP STATE = PENDING   <- "Waiting for status..."
-      #     cf1edb3  status failure  -> ROLLUP STATE = FAILURE
-      # so without a status here the PR reads "All checks have passed" on unreviewed code.
+      # The `agentic-review` commit status is posted only while a review is actually running.
+      # It is NOT posted on a push. The review is advisory and gates nothing, and a red mark
+      # from `gate` while `review`/`review-audit`/`finalize` all report "skipped" would be two
+      # contradictory signals, the louder one from the job that does not do the reviewing.
+      # The status exists only because a comment-triggered run's check runs attach to no PR;
+      # a pull_request run's are already visible on it.
       #
-      # `failure`, NOT `pending`. This is the only status writer whose condition is the INVERSE
-      # of `finalize`'s (`run == 'false'` vs `always() && run == 'true'`), so nothing in this
-      # workflow can ever resolve what it posts. A non-terminal state with no resolver renders
-      # as "Waiting for status to be reported" -- indistinguishable from a hung check, which is
-      # exactly how it was read. `failure` is terminal: it needs no resolver, and `finalize`
-      # overwrites it the moment a real review completes. It also matches the wording
-      # `finalize` already uses for "no review claimed".
-      #
-      # The SHA comes from the event payload -- verified equal to the pushed tip on four runs
-      # -- so there is no API call here that can fail.
-      - name: Mark the new commit unreviewed
-        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
-            -f state=failure -f context="agentic-review" \
-            -f description="not reviewed — run /agentic-review on this commit" || true
-
-      # `finalize` writes the terminal status only at the END, so for the whole 4-15 min a
-      # review takes the PR again carried no context: on PR #3 the review ran 02:56:22-03:00:04
-      # and the status was created 03:00:12.
-      #
-      # continue-on-error on both steps: a cosmetic status must NEVER be able to fail `gate`.
-      # `review` is `if: needs.gate.outputs.run == 'true'`, which carries no status function, so
-      # GitHub ANDs an implicit success() onto it -- without this, one failed `gh` call here
-      # would SKIP the entire review.
+      # `continue-on-error`: a cosmetic status must never be able to fail `gate`, which would
+      # skip the review entirely.
       - name: Mark the review pending
         if: steps.decide.outputs.run == 'true'
         continue-on-error: true
@@ -190,10 +145,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
-      # The ACTION's own verdict, which is NOT the same as the job's result. On a workflow-
-      # validation skip claude-code-action returns at run.ts:182 — before run.ts:315 ever
-      # sets this — so it is empty while the job still reports success. Observed live on
-      # PR #5: both agent jobs green in ~20s, zero review posted.
+      # The ACTION's own verdict, which is NOT the job's result. When the action declines to run
+      # it returns early without setting this, so it is empty while the job still reports success.
+      # `finalize` therefore checks both.
       conclusion: ${{ steps.agent.outputs.conclusion }}
     steps:
       - uses: actions/checkout@v6
@@ -204,31 +158,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Two calls, not one. `gh pr edit --add-label X --remove-label Y` launches both
-          # mutations as separate goroutines on one errgroup (cli/cli v2.98.0,
-          # pkg/cmd/pr/shared/editable_http.go:12-36), so their order is undefined and the PR
-          # can briefly carry BOTH labels. Removing first, in its own call, makes every
-          # transition strictly one-way. Observed on PR #7: "Audit ongoing" LABELED and
-          # "Review ongoing" UNLABELED both landed at 11:07:37Z.
+          # Two calls, not one. `gh pr edit --add-label X --remove-label Y` fires both changes at
+          # once with no defined order, so the PR can briefly show BOTH labels. Removing first, in
+          # its own call, makes every transition one-way. Removals may share a call —
+          # they cannot race each other.
           gh pr edit "${{ needs.gate.outputs.pr }}" --remove-label "Review finished" || true
           gh pr edit "${{ needs.gate.outputs.pr }}" --add-label "Review ongoing"     || true
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Agent mode (which `prompt:` selects) installs NO comment MCP server and grants
-          # NO tools unless they are named here -- see install-mcp-server.ts:114 and
-          # modes/agent/index.ts:16-18. Without this the agent is told to "post a comment"
-          # while holding no tool that can post one, which is why PR #5's Conversation tab
-          # stayed empty. Read/Write/Edit + a test runner are what verify.md:14,19-20
-          # requires: run the tests, add a throwaway one, then delete it and revert.
-          # Read-only. 0 of 6 reviewer grants across claude-cookbooks and kandev include Write
-          # or Edit; kandev disallows them outright. This is scope hardening, NOT a turn-budget
-          # fix -- run 33337470549 had 34 denials and ZERO of them were Write/Edit. It is safe
-          # only because verify.md now tells a CI reviewer to read and report, not reproduce;
-          # applied without that, the agent would attempt writes it no longer holds.
-          # Deliberately NOT granted: `git push`, `gh pr merge/close`, `gh api`, `gh secret`,
-          # network fetchers, and any shell that can run arbitrary scripts (`bash`, `sh`).
+          # Agent mode grants NO tools unless they are named here, and installs no comment
+          # server — so without this the agent is told to post a comment while holding nothing
+          # that can post one. Read-only on purpose: this reviewer reads and reports, it does
+          # not reproduce. Deliberately withheld: `git push`, `gh pr merge/close`, `gh api`,
+          # `gh secret`, network fetchers, and any shell that runs arbitrary scripts.
+          # Narrowing tools was NOT what fixed the turn-cap failures — scoping the instructions
+          # was; see `core/shared/verify.md`.
           claude_args: |
             --max-turns 40
             --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
@@ -245,11 +191,9 @@ jobs:
             End the comment with a "Verification process" section stating which tests you ran,
             any throwaway test or temporary amendment you made and removed, and the final
             `git status --porcelain`. A finding you could not ground, mark as unverified.
-      # The workflow log reports `permission_denials_count` but never WHICH calls were denied,
-      # so a too-narrow --allowedTools can only be widened by guesswork. The action writes the
-      # turn-by-turn transcript to ${runner.temp}/claude-execution-output.json; upload it so the
-      # denied calls can be read off one run instead of inferred over several at ~$1 each.
-      # `if: always()` because the interesting case is the failing run.
+      # The run log reports how MANY calls were denied but never WHICH, so a too-narrow tool list
+      # could only be widened by guesswork. Upload the agent's transcript instead and read them.
+      # `if: always()` because the failing run is the interesting one.
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -264,10 +208,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
-      # The ACTION's own verdict, which is NOT the same as the job's result. On a workflow-
-      # validation skip claude-code-action returns at run.ts:182 — before run.ts:315 ever
-      # sets this — so it is empty while the job still reports success. Observed live on
-      # PR #5: both agent jobs green in ~20s, zero review posted.
+      # Same as the `review` job's `conclusion` output — see the note there.
       conclusion: ${{ steps.agent.outputs.conclusion }}
     steps:
       - uses: actions/checkout@v6
@@ -286,19 +227,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Agent mode (which `prompt:` selects) installs NO comment MCP server and grants
-          # NO tools unless they are named here -- see install-mcp-server.ts:114 and
-          # modes/agent/index.ts:16-18. Without this the agent is told to "post a comment"
-          # while holding no tool that can post one, which is why PR #5's Conversation tab
-          # stayed empty. Read/Write/Edit + a test runner are what verify.md:14,19-20
-          # requires: run the tests, add a throwaway one, then delete it and revert.
-          # Read-only. 0 of 6 reviewer grants across claude-cookbooks and kandev include Write
-          # or Edit; kandev disallows them outright. This is scope hardening, NOT a turn-budget
-          # fix -- run 33337470549 had 34 denials and ZERO of them were Write/Edit. It is safe
-          # only because verify.md now tells a CI reviewer to read and report, not reproduce;
-          # applied without that, the agent would attempt writes it no longer holds.
-          # Deliberately NOT granted: `git push`, `gh pr merge/close`, `gh api`, `gh secret`,
-          # network fetchers, and any shell that can run arbitrary scripts (`bash`, `sh`).
+          # Same tool grant and reasoning as the `review` job — see the note there.
           claude_args: |
             --max-turns 40
             --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
@@ -330,24 +259,18 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # A label must never outlive the run that set it. Proven necessary, not hypothetical:
-  # on run 32675078939 the `review` job failed, so `review-audit` was skipped -- and a
-  # skipped job runs ZERO steps, so its cleanup never ran and `Review ongoing` stranded
-  # on the PR. `if: always()` on a step inside review-audit also mislabelled a FAILED
-  # audit as `Review finished`. This job depends on all three, runs whatever happened,
-  # and is the single owner of the terminal label.
+  # A label must never outlive the run that set it. A skipped job runs zero steps, so cleanup
+  # inside `review-audit` never ran and `Review ongoing` stranded on the PR. This job depends
+  # on all three, runs whatever happened, and is the single owner of the terminal label.
   finalize:
     needs: [gate, review, review-audit]
     if: always() && needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Job-level permissions REPLACE the workflow-level set, so everything this job calls must be
-    # listed here. `statuses: write` is held by exactly two jobs -- this one and `gate` -- and
-    # NEITHER of them runs an agent, whereas `review` and `review-audit` do. A reviewer that could post its own status could mark its own
-    # review green — which is the failure this whole gate exists to prevent. Today the agent also
-    # lacks a `gh api` tool, but that is the tool-list defending it, not the token scope; this
-    # closes it at the scope so a future grant addition cannot silently reopen it. `gate` posts
-    # only `pending`; this job remains the sole owner of the TERMINAL status.
+    # Job-level permissions REPLACE the workflow-level set, so list everything this job calls.
+    # `statuses: write` is held only by this job and `gate`, and NEITHER runs an agent — a
+    # reviewer that could post its own status could mark its own review green. Closing it at the
+    # scope means a future tool-list change cannot silently reopen it.
     permissions:
       contents: read
       pull-requests: write   # gh pr edit --add-label / --remove-label
@@ -384,14 +307,13 @@ jobs:
             echo "::warning::review=$REVIEW(conclusion=${REVIEW_CONC:-unset}) audit=$AUDIT(conclusion=${AUDIT_CONC:-unset}) — no review claimed; clearing labels."
             gh pr edit "$PR" --remove-label "Review ongoing" \
               --remove-label "Audit ongoing" --remove-label "Review finished" || true
-            # The label alone is not enough: an issue_comment run's checks never reach the PR,
-            # so without this the PR still reads "All checks have passed" after a failed review.
-            # The description carries the CONCLUSIONS, not just the job results. Without them
-            # it read "no review claimed (review=success audit=success)" -- self-contradictory
-            # on the PR, because the real reason (claude-code-action skipped, so it never set
-            # `conclusion`) lived only in the run log. Seen on PR #7 run 33385459214.
-            # NB: no comments inside the `\`-continued command below -- a comment there ends
-            # the command and silently drops every flag after it.
+            # The label alone is not enough: a comment-triggered run's checks never reach the
+            # PR, so without this it still reads "All checks have passed" after a failed review.
+            # The
+            # description carries the CONCLUSIONS, not just the job results — otherwise it reads
+            # "no review claimed (review=success audit=success)", which looks self-contradictory.
+            # NB: no comments inside the `\`-continued command below — a comment there
+            # ends the command and silently drops every flag after it.
             gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
               -f state=failure -f context="agentic-review" \
               -f description="no review claimed (review=$REVIEW/${REVIEW_CONC:-unset} audit=$AUDIT/${AUDIT_CONC:-unset})" || true
