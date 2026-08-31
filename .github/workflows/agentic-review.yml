@@ -27,7 +27,15 @@ concurrency:
   # gate's `synchronize` branch, which clears every label — so a cancelled run cannot leave
   # a label claiming a review that no longer exists.
   group: agentic-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
+  # ONLY a push may cancel. The reviewer posts its verdict as a PR comment as claude[bot] --
+  # a GitHub App token, which DOES create a run (GITHUB_TOKEN would not) -- and that run lands
+  # in this same group, so a bare `true` made the reviewer cancel the run that posted it, 1.5s
+  # after it finished. Run 33352215846 died at 03:00:00.94 ("The operation was canceled")
+  # having ALREADY set conclusion=success, so review-audit never started; 33352392606 was
+  # queued 02:59:59 by claude[bot]. Keying the GROUP on event_name does NOT fix this -- both
+  # runs are `issue_comment`, so they still collide, and a push would stop superseding.
+  # An `issue_comment` run now queues instead; its gate returns run=false in ~5s.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -47,6 +55,16 @@ env:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    # Job-level permissions REPLACE the workflow-level set, so everything this job calls is
+    # listed here. Like `finalize`, this job runs NO agent -- which is why it may hold
+    # `statuses: write`. `id-token: write` is dropped: gate uses no OIDC. The three inherited
+    # scopes are unchanged, and the eyes reaction is known to work under them (it landed on
+    # comment 5473122653 at 02:56:18Z).
+    permissions:
+      contents: read
+      pull-requests: write   # gh pr edit --remove-label (the synchronize branch)
+      issues: write          # PR labels go through the issues API; also the eyes reaction
+      statuses: write        # the pending statuses posted below
     outputs:
       run: ${{ steps.decide.outputs.run }}
       pr: ${{ steps.decide.outputs.pr }}
@@ -112,6 +130,46 @@ jobs:
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # A push invalidates any earlier review: nobody has reviewed the new commit. The labels
+      # are cleared above, but a label is not a check -- and statuses are per-SHA, so the new
+      # SHA starts with NO `agentic-review` context and the PR reads "All checks have passed"
+      # on code no agent has seen. Measured on PR #3: heads 7c9c1a0, 50f2be6 and 56546b5 each
+      # carry zero statuses. `pending`, not `failure`: unreviewed is not broken. The SHA comes
+      # from the event payload -- verified equal to the pushed tip on four runs -- so there is
+      # no API call here that can fail.
+      - name: Mark the new commit unreviewed
+        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
+            -f state=pending -f context="agentic-review" \
+            -f description="new commit — not reviewed; run /agentic-review" || true
+
+      # `finalize` writes the terminal status only at the END, so for the whole 4-15 min a
+      # review takes the PR again carried no context: on PR #3 the review ran 02:56:22-03:00:04
+      # and the status was created 03:00:12.
+      #
+      # continue-on-error on both steps: a cosmetic status must NEVER be able to fail `gate`.
+      # `review` is `if: needs.gate.outputs.run == 'true'`, which carries no status function, so
+      # GitHub ANDs an implicit success() onto it -- without this, one failed `gh` call here
+      # would SKIP the entire review.
+      - name: Mark the review pending
+        if: steps.decide.outputs.run == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.decide.outputs.pr }}
+        run: |
+          set -euo pipefail
+          # The PR head SHA, not $GITHUB_SHA -- see the same note in `finalize`.
+          SHA=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
+            -f state=pending -f context="agentic-review" \
+            -f description="review + audit running" || true
 
   review:
     needs: gate
@@ -263,11 +321,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Job-level permissions REPLACE the workflow-level set, so everything this job calls must be
-    # listed here. This is the ONLY job that may write a commit status: it runs no agent, whereas
-    # `review` and `review-audit` do. A reviewer that could post its own status could mark its own
+    # listed here. `statuses: write` is held by exactly two jobs -- this one and `gate` -- and
+    # NEITHER of them runs an agent, whereas `review` and `review-audit` do. A reviewer that could post its own status could mark its own
     # review green — which is the failure this whole gate exists to prevent. Today the agent also
     # lacks a `gh api` tool, but that is the tool-list defending it, not the token scope; this
-    # closes it at the scope so a future grant addition cannot silently reopen it.
+    # closes it at the scope so a future grant addition cannot silently reopen it. `gate` posts
+    # only `pending`; this job remains the sole owner of the TERMINAL status.
     permissions:
       contents: read
       pull-requests: write   # gh pr edit --add-label / --remove-label
