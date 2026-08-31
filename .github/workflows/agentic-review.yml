@@ -175,8 +175,11 @@ jobs:
           # `gh secret`, network fetchers, and any shell that runs arbitrary scripts.
           # Narrowing tools was NOT what fixed the turn-cap failures — scoping the instructions
           # was; see `core/shared/verify.md`.
+          # No `--max-turns`. Whenever it took effect it failed `review` and skipped the audit:
+          # three runs were cut off mid-work, and one was allowed to finish and then failed for
+          # going over — throwing away a review it had already posted.
+          # `timeout-minutes` above is the real guard: it stops work instead of binning it.
           claude_args: |
-            --max-turns 40
             --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           prompt: |
             You are the `review` role. Follow, from this checkout:
@@ -227,9 +230,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Same tool grant and reasoning as the `review` job — see the note there.
+          # Same tool grant and `--max-turns` reasoning as the `review` job — see the notes there.
           claude_args: |
-            --max-turns 40
             --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           prompt: |
             You are the `review-audit` auditor. Follow, from this checkout:
