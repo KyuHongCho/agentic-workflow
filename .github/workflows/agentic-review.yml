@@ -34,6 +34,9 @@ permissions:
   pull-requests: write
   issues: write          # PR conversation comments are issue comments (labels + reactions)
   id-token: write
+# `statuses: write` is deliberately NOT here. It is granted to `finalize` alone, at job level —
+# see that job. Granting it workflow-wide would hand it to both agent jobs, and a reviewer able
+# to post a commit status could mark its own review green.
 
 env:
   # `gate` and `finalize` run without a checkout, so `gh` has no git remote to infer the
@@ -142,11 +145,16 @@ jobs:
           # while holding no tool that can post one, which is why PR #5's Conversation tab
           # stayed empty. Read/Write/Edit + a test runner are what verify.md:14,19-20
           # requires: run the tests, add a throwaway one, then delete it and revert.
+          # Read-only. 0 of 6 reviewer grants across claude-cookbooks and kandev include Write
+          # or Edit; kandev disallows them outright. This is scope hardening, NOT a turn-budget
+          # fix -- run 33337470549 had 34 denials and ZERO of them were Write/Edit. It is safe
+          # only because verify.md now tells a CI reviewer to read and report, not reproduce;
+          # applied without that, the agent would attempt writes it no longer holds.
           # Deliberately NOT granted: `git push`, `gh pr merge/close`, `gh api`, `gh secret`,
-          # network fetchers. A reviewer needs to read, run and comment -- nothing else.
+          # network fetchers, and any shell that can run arbitrary scripts (`bash`, `sh`).
           claude_args: |
             --max-turns 40
-            --allowedTools "Read,Grep,Glob,Write,Edit,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git restore:*),Bash(git checkout:*),Bash(git clean:*),Bash(rm:*),Bash(ls:*),Bash(cat:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(bash:*),Bash(sh:*)"
+            --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           prompt: |
             You are the `review` role. Follow, from this checkout:
               core/roles/review.md      — what to produce
@@ -205,11 +213,16 @@ jobs:
           # while holding no tool that can post one, which is why PR #5's Conversation tab
           # stayed empty. Read/Write/Edit + a test runner are what verify.md:14,19-20
           # requires: run the tests, add a throwaway one, then delete it and revert.
+          # Read-only. 0 of 6 reviewer grants across claude-cookbooks and kandev include Write
+          # or Edit; kandev disallows them outright. This is scope hardening, NOT a turn-budget
+          # fix -- run 33337470549 had 34 denials and ZERO of them were Write/Edit. It is safe
+          # only because verify.md now tells a CI reviewer to read and report, not reproduce;
+          # applied without that, the agent would attempt writes it no longer holds.
           # Deliberately NOT granted: `git push`, `gh pr merge/close`, `gh api`, `gh secret`,
-          # network fetchers. A reviewer needs to read, run and comment -- nothing else.
+          # network fetchers, and any shell that can run arbitrary scripts (`bash`, `sh`).
           claude_args: |
             --max-turns 40
-            --allowedTools "Read,Grep,Glob,Write,Edit,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git restore:*),Bash(git checkout:*),Bash(git clean:*),Bash(rm:*),Bash(ls:*),Bash(cat:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(bash:*),Bash(sh:*)"
+            --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           prompt: |
             You are the `review-audit` auditor. Follow, from this checkout:
               core/auditors/review-audit.md — the criteria, including the two passes
@@ -249,6 +262,17 @@ jobs:
     if: always() && needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Job-level permissions REPLACE the workflow-level set, so everything this job calls must be
+    # listed here. This is the ONLY job that may write a commit status: it runs no agent, whereas
+    # `review` and `review-audit` do. A reviewer that could post its own status could mark its own
+    # review green — which is the failure this whole gate exists to prevent. Today the agent also
+    # lacks a `gh api` tool, but that is the tool-list defending it, not the token scope; this
+    # closes it at the scope so a future grant addition cannot silently reopen it.
+    permissions:
+      contents: read
+      pull-requests: write   # gh pr edit --add-label / --remove-label
+      issues: write          # PR labels go through the issues API
+      statuses: write        # the commit status this job posts to the PR head SHA
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
@@ -259,16 +283,27 @@ jobs:
           AUDIT_CONC: ${{ needs.review-audit.outputs.conclusion }}
         run: |
           set -euo pipefail
+          # The PR head SHA, not $GITHUB_SHA: on an issue_comment run the latter is the DEFAULT
+          # branch's tip, so a status posted to it would land on main and never on the PR.
+          SHA=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
           # A job can succeed without reviewing anything: claude-code-action exits 0
           # when it declines and returns before setting `conclusion`.
           if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ] \
              && [ "$REVIEW_CONC" = "success" ] && [ "$AUDIT_CONC" = "success" ]; then
             gh pr edit "$PR" --add-label "Review finished" \
               --remove-label "Review ongoing" --remove-label "Audit ongoing" || true
+            gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
+              -f state=success -f context="agentic-review" \
+              -f description="review + audit complete" || true
           else
             # Failed, cancelled or timed out: leave NO label rather than one claiming a
             # review that did not complete.
             echo "::warning::review=$REVIEW(conclusion=${REVIEW_CONC:-unset}) audit=$AUDIT(conclusion=${AUDIT_CONC:-unset}) — no review claimed; clearing labels."
             gh pr edit "$PR" --remove-label "Review ongoing" \
               --remove-label "Audit ongoing" --remove-label "Review finished" || true
+            # The label alone is not enough: an issue_comment run's checks never reach the PR,
+            # so without this the PR still reads "All checks have passed" after a failed review.
+            gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
+              -f state=failure -f context="agentic-review" \
+              -f description="no review claimed (review=$REVIEW audit=$AUDIT)" || true
           fi

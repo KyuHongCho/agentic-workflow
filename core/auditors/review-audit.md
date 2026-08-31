@@ -23,6 +23,9 @@ to what the reviewer already looked at, and **blind spots are what this pass exi
 - Confirm each acceptance criterion was genuinely checked against the real artifact.
 
 Use `../shared/verify.md` for the method (re-run tests where relevant; evidence over reasoning; revert any throwaway; report).
+**Running in CI you are read-only**, per `verify.md` — re-run existing tests and read the tree, but do
+not create a test, re-fetch the diff, or chase an external document. Mark what you could not reproduce
+as **unverified**; a run that exhausts its turns posts no audit at all.
 
 ## Criteria (challenge each)
 - **Coverage:** Did the review check every acceptance criterion? What did it miss (risk of a false `PASS`)?
