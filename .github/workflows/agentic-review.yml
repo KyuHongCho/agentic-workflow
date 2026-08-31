@@ -191,8 +191,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit "${{ needs.gate.outputs.pr }}" \
-            --add-label "Review ongoing" --remove-label "Review finished" || true
+          # Two calls, not one. `gh pr edit --add-label X --remove-label Y` launches both
+          # mutations as separate goroutines on one errgroup (cli/cli v2.98.0,
+          # pkg/cmd/pr/shared/editable_http.go:12-36), so their order is undefined and the PR
+          # can briefly carry BOTH labels. Removing first, in its own call, makes every
+          # transition strictly one-way. Observed on PR #7: "Audit ongoing" LABELED and
+          # "Review ongoing" UNLABELED both landed at 11:07:37Z.
+          gh pr edit "${{ needs.gate.outputs.pr }}" --remove-label "Review finished" || true
+          gh pr edit "${{ needs.gate.outputs.pr }}" --add-label "Review ongoing"     || true
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -259,8 +265,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit "${{ needs.gate.outputs.pr }}" \
-            --add-label "Audit ongoing" --remove-label "Review ongoing" || true
+          # Remove before add -- see the note in the `review` job. This is the transition
+          # that showed both labels at once.
+          gh pr edit "${{ needs.gate.outputs.pr }}" --remove-label "Review ongoing" || true
+          gh pr edit "${{ needs.gate.outputs.pr }}" --add-label "Audit ongoing"     || true
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -349,8 +357,11 @@ jobs:
           # when it declines and returns before setting `conclusion`.
           if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ] \
              && [ "$REVIEW_CONC" = "success" ] && [ "$AUDIT_CONC" = "success" ]; then
-            gh pr edit "$PR" --add-label "Review finished" \
-              --remove-label "Review ongoing" --remove-label "Audit ongoing" || true
+            # Removes first, then the terminal add -- see the note in the `review` job.
+            # Two removes in one call share a single mutation, so they cannot race.
+            gh pr edit "$PR" --remove-label "Review ongoing" \
+              --remove-label "Audit ongoing" || true
+            gh pr edit "$PR" --add-label "Review finished" || true
             gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
               -f state=success -f context="agentic-review" \
               -f description="review + audit complete" || true
@@ -362,7 +373,13 @@ jobs:
               --remove-label "Audit ongoing" --remove-label "Review finished" || true
             # The label alone is not enough: an issue_comment run's checks never reach the PR,
             # so without this the PR still reads "All checks have passed" after a failed review.
+            # The description carries the CONCLUSIONS, not just the job results. Without them
+            # it read "no review claimed (review=success audit=success)" -- self-contradictory
+            # on the PR, because the real reason (claude-code-action skipped, so it never set
+            # `conclusion`) lived only in the run log. Seen on PR #7 run 33385459214.
+            # NB: no comments inside the `\`-continued command below -- a comment there ends
+            # the command and silently drops every flag after it.
             gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
               -f state=failure -f context="agentic-review" \
-              -f description="no review claimed (review=$REVIEW audit=$AUDIT)" || true
+              -f description="no review claimed (review=$REVIEW/${REVIEW_CONC:-unset} audit=$AUDIT/${AUDIT_CONC:-unset})" || true
           fi
