@@ -27,7 +27,15 @@ concurrency:
   # gate's `synchronize` branch, which clears every label — so a cancelled run cannot leave
   # a label claiming a review that no longer exists.
   group: agentic-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
+  # ONLY a push may cancel. The reviewer posts its verdict as a PR comment as claude[bot] --
+  # a GitHub App token, which DOES create a run (GITHUB_TOKEN would not) -- and that run lands
+  # in this same group, so a bare `true` made the reviewer cancel the run that posted it, 1.5s
+  # after it finished. Run 33352215846 died at 03:00:00.94 ("The operation was canceled")
+  # having ALREADY set conclusion=success, so review-audit never started; 33352392606 was
+  # queued 02:59:59 by claude[bot]. Keying the GROUP on event_name does NOT fix this -- both
+  # runs are `issue_comment`, so they still collide, and a push would stop superseding.
+  # An `issue_comment` run now queues instead; its gate returns run=false in ~5s.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -47,6 +55,16 @@ env:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    # Job-level permissions REPLACE the workflow-level set, so everything this job calls is
+    # listed here. Like `finalize`, this job runs NO agent -- which is why it may hold
+    # `statuses: write`. `id-token: write` is dropped: gate uses no OIDC. The three inherited
+    # scopes are unchanged, and the eyes reaction is known to work under them (it landed on
+    # comment 5473122653 at 02:56:18Z).
+    permissions:
+      contents: read
+      pull-requests: write   # gh pr edit --remove-label (the synchronize branch)
+      issues: write          # PR labels go through the issues API; also the eyes reaction
+      statuses: write        # the pending statuses posted below
     outputs:
       run: ${{ steps.decide.outputs.run }}
       pr: ${{ steps.decide.outputs.pr }}
@@ -113,6 +131,59 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # A push invalidates any earlier review: nobody has reviewed the new commit. A label is
+      # not a check, and statuses are per-SHA, so the new SHA starts with NO `agentic-review`
+      # context. The SKIPPED `review`/`review-audit`/`finalize` check runs do NOT cover this:
+      # measured with the GraphQL statusCheckRollup on three commits carrying an identical set
+      # of five check runs, where the only variable is this status --
+      #     56546b5  no status       -> ROLLUP STATE = SUCCESS   <- green, nothing reviewed it
+      #     b356665  status pending  -> ROLLUP STATE = PENDING   <- "Waiting for status..."
+      #     cf1edb3  status failure  -> ROLLUP STATE = FAILURE
+      # so without a status here the PR reads "All checks have passed" on unreviewed code.
+      #
+      # `failure`, NOT `pending`. This is the only status writer whose condition is the INVERSE
+      # of `finalize`'s (`run == 'false'` vs `always() && run == 'true'`), so nothing in this
+      # workflow can ever resolve what it posts. A non-terminal state with no resolver renders
+      # as "Waiting for status to be reported" -- indistinguishable from a hung check, which is
+      # exactly how it was read. `failure` is terminal: it needs no resolver, and `finalize`
+      # overwrites it the moment a real review completes. It also matches the wording
+      # `finalize` already uses for "no review claimed".
+      #
+      # The SHA comes from the event payload -- verified equal to the pushed tip on four runs
+      # -- so there is no API call here that can fail.
+      - name: Mark the new commit unreviewed
+        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
+            -f state=failure -f context="agentic-review" \
+            -f description="not reviewed — run /agentic-review on this commit" || true
+
+      # `finalize` writes the terminal status only at the END, so for the whole 4-15 min a
+      # review takes the PR again carried no context: on PR #3 the review ran 02:56:22-03:00:04
+      # and the status was created 03:00:12.
+      #
+      # continue-on-error on both steps: a cosmetic status must NEVER be able to fail `gate`.
+      # `review` is `if: needs.gate.outputs.run == 'true'`, which carries no status function, so
+      # GitHub ANDs an implicit success() onto it -- without this, one failed `gh` call here
+      # would SKIP the entire review.
+      - name: Mark the review pending
+        if: steps.decide.outputs.run == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.decide.outputs.pr }}
+        run: |
+          set -euo pipefail
+          # The PR head SHA, not $GITHUB_SHA -- see the same note in `finalize`.
+          SHA=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
+            -f state=pending -f context="agentic-review" \
+            -f description="review + audit running" || true
+
   review:
     needs: gate
     if: needs.gate.outputs.run == 'true'
@@ -133,8 +204,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit "${{ needs.gate.outputs.pr }}" \
-            --add-label "Review ongoing" --remove-label "Review finished" || true
+          # Two calls, not one. `gh pr edit --add-label X --remove-label Y` launches both
+          # mutations as separate goroutines on one errgroup (cli/cli v2.98.0,
+          # pkg/cmd/pr/shared/editable_http.go:12-36), so their order is undefined and the PR
+          # can briefly carry BOTH labels. Removing first, in its own call, makes every
+          # transition strictly one-way. Observed on PR #7: "Audit ongoing" LABELED and
+          # "Review ongoing" UNLABELED both landed at 11:07:37Z.
+          gh pr edit "${{ needs.gate.outputs.pr }}" --remove-label "Review finished" || true
+          gh pr edit "${{ needs.gate.outputs.pr }}" --add-label "Review ongoing"     || true
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -201,8 +278,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr edit "${{ needs.gate.outputs.pr }}" \
-            --add-label "Audit ongoing" --remove-label "Review ongoing" || true
+          # Remove before add -- see the note in the `review` job. This is the transition
+          # that showed both labels at once.
+          gh pr edit "${{ needs.gate.outputs.pr }}" --remove-label "Review ongoing" || true
+          gh pr edit "${{ needs.gate.outputs.pr }}" --add-label "Audit ongoing"     || true
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -263,11 +342,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Job-level permissions REPLACE the workflow-level set, so everything this job calls must be
-    # listed here. This is the ONLY job that may write a commit status: it runs no agent, whereas
-    # `review` and `review-audit` do. A reviewer that could post its own status could mark its own
+    # listed here. `statuses: write` is held by exactly two jobs -- this one and `gate` -- and
+    # NEITHER of them runs an agent, whereas `review` and `review-audit` do. A reviewer that could post its own status could mark its own
     # review green — which is the failure this whole gate exists to prevent. Today the agent also
     # lacks a `gh api` tool, but that is the tool-list defending it, not the token scope; this
-    # closes it at the scope so a future grant addition cannot silently reopen it.
+    # closes it at the scope so a future grant addition cannot silently reopen it. `gate` posts
+    # only `pending`; this job remains the sole owner of the TERMINAL status.
     permissions:
       contents: read
       pull-requests: write   # gh pr edit --add-label / --remove-label
@@ -290,8 +370,11 @@ jobs:
           # when it declines and returns before setting `conclusion`.
           if [ "$REVIEW" = "success" ] && [ "$AUDIT" = "success" ] \
              && [ "$REVIEW_CONC" = "success" ] && [ "$AUDIT_CONC" = "success" ]; then
-            gh pr edit "$PR" --add-label "Review finished" \
-              --remove-label "Review ongoing" --remove-label "Audit ongoing" || true
+            # Removes first, then the terminal add -- see the note in the `review` job.
+            # Two removes in one call share a single mutation, so they cannot race.
+            gh pr edit "$PR" --remove-label "Review ongoing" \
+              --remove-label "Audit ongoing" || true
+            gh pr edit "$PR" --add-label "Review finished" || true
             gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
               -f state=success -f context="agentic-review" \
               -f description="review + audit complete" || true
@@ -303,7 +386,13 @@ jobs:
               --remove-label "Audit ongoing" --remove-label "Review finished" || true
             # The label alone is not enough: an issue_comment run's checks never reach the PR,
             # so without this the PR still reads "All checks have passed" after a failed review.
+            # The description carries the CONCLUSIONS, not just the job results. Without them
+            # it read "no review claimed (review=success audit=success)" -- self-contradictory
+            # on the PR, because the real reason (claude-code-action skipped, so it never set
+            # `conclusion`) lived only in the run log. Seen on PR #7 run 33385459214.
+            # NB: no comments inside the `\`-continued command below -- a comment there ends
+            # the command and silently drops every flag after it.
             gh api -X POST "repos/$GH_REPO/statuses/$SHA" \
               -f state=failure -f context="agentic-review" \
-              -f description="no review claimed (review=$REVIEW audit=$AUDIT)" || true
+              -f description="no review claimed (review=$REVIEW/${REVIEW_CONC:-unset} audit=$AUDIT/${AUDIT_CONC:-unset})" || true
           fi
