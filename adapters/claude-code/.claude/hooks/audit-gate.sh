@@ -11,7 +11,7 @@ case "$payload" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exi
 # (gate-check.sh blocks those inside subagents too), so demanding an audit now would
 # livelock the turn. At that point the human owes an answer, not the agent.
 GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
-if [ -f "$GATE" ] && grep -qE 'status:[[:space:]]*blocked' "$GATE"; then exit 0; fi
+if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE 'status:[[:space:]]*blocked'; then exit 0; fi
 
 [ -s "$STATE" ] || exit 0                            # nothing owed -> allow the turn to end
 

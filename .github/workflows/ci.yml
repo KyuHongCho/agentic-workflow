@@ -29,3 +29,9 @@ jobs:
         # 14 cases: ask / block / pass. The gate fails OPEN if its file is
         # missing or broken, so this self-test is how we know it is live.
         run: bash adapters/claude-code/.claude/hooks/ship-gate.selftest.sh
+
+      - name: grilling-gate self-test
+        # 16 cases: pass / ask / block, plus four gate-clear scenarios. Same
+        # reason as above — a missing or broken hook exits 127, which does not
+        # block, so this gate fails OPEN too.
+        run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh

@@ -38,16 +38,29 @@ The audit gate stands down while the grilling gate is `blocked` — at that poin
 and auditors could not run anyway (their `Bash`/`Edit` would be gated).
 
 ## Hard-enforced grilling gate (Claude Code only)
-A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) blocks
-`Write`/`Edit`/`Bash` while a gate file marks questions open. To make it bite, **mirror your grilling
+A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
+`Write`/`Edit`/`Bash` while a gate file marks questions open — routing them to the human's approval
+prompt, or hard-blocking where no prompt would be shown. To make it bite, **mirror your grilling
 state to the gate file**:
 
 - **When grilling raises an open question** → write `status: blocked` to `${CLAUDE_PROJECT_DIR}/.gate`, then ask the human. (You can — you are not yet blocked.)
-- **Only the human clears the gate.** Once blocked you cannot flip it back — `Write`/`Edit`/`Bash` are all gated, by design. Do **not** route around it (subagents, alternate tools). Ask the human to clear it: `echo 'status: done' > .gate` (or
-`$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/unblock`, which does the same thing — the install
-in `README.md` does not symlink `bin/`, so there is no `bin/unblock` at the project root).
+- **Only the human clears the gate — but they now do it in-session.** Your first `Write`/`Edit`/`Bash`
+after blocking raises an approval prompt carrying the open questions; approving it releases the gate
+(`gate-clear.sh`), declining leaves it shut. You still cannot release it yourself: `gate-clear.sh`
+acts only on a gate `gate-check.sh` recorded a prompt for, so the gate *you* set is never wiped by
+your own tool call. Do **not** route around it (subagents, alternate tools).
+- **Where no prompt would be shown it hard-blocks instead** — inside a subagent, or in
+`bypassPermissions`/`dontAsk` (and `acceptEdits` for `Write`/`Edit`), because an unshown prompt is not
+an answer. Then ask in the conversation and the human runs
+`$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/unblock` — the install in `README.md` does not
+symlink `bin/`, so there is no `bin/unblock` at the project root.
 
-While blocked you can still read, search, and ask — you just cannot change code until the human clears the gate.
+While blocked you can still read, search, and ask — you just cannot change code until the human
+releases the gate.
+
+**This gate fails OPEN if either script is missing** — a broken `.claude/hooks` symlink makes the
+hook exit 127, which does not block. After installing, and after ever moving this repo, run:
+`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (16/16)`.
 
 ## Hard-enforced shipping gate (Claude Code only)
 Publishing is **not** a stage — see `$AGENTIC_WORKFLOW_HOME/core/shared/shipping.md`. A `PreToolUse`
