@@ -22,6 +22,7 @@ else
   [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n' >> .git/info/exclude
   bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (14/14)
   bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (18/18)
+  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (8/8)
 fi
 ```
 

@@ -37,6 +37,12 @@ still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/h
 The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
 and auditors could not run anyway (their `Bash`/`Edit` would be gated).
 
+**This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
+`.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
+ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
+happened. After installing, and after ever moving this repo, run:
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (8/8)`.
+
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
 `Write`/`Edit`/`Bash` while a gate file marks questions open — routing them to the human's approval
