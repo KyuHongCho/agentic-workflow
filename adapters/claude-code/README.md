@@ -21,7 +21,7 @@ else
   ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
   [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n' >> .git/info/exclude
   bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (14/14)
-  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (16/16)
+  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (18/18)
 fi
 ```
 
