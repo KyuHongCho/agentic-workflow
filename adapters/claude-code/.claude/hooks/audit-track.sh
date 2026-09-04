@@ -21,7 +21,7 @@ agent=$(printf '%s' "$payload" | python3 -c 'import sys,json; print(json.load(sy
 # Matched narrowly on "status: blocked" — a plan legitimately contains "Blocked by:"
 # lines for its slice edges, and those must NOT suppress a real audit debt.
 GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
-if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE 'status:[[:space:]]*blocked'; then exit 0; fi
+if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked'; then exit 0; fi
 if printf '%s' "$payload" | grep -qiE '[Ss]tatus:[^"]{0,20}blocked'; then exit 0; fi
 
 touch "$STATE"

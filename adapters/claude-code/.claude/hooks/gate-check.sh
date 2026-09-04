@@ -11,7 +11,7 @@ MARK="$GATE-asked"
 [ -f "$GATE" ] || { rm -f "$MARK"; exit 0; }
 # Comment lines are the questions, and a question may quote the phrase "status: blocked". Strip
 # them first and take the FIRST status, or the gate fails open on its own question text.
-st=$(grep -vE '^[[:space:]]*#' "$GATE" | grep -oE 'status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')
+st=$(grep -vE '^[[:space:]]*#' "$GATE" | grep -oE '^[[:space:]]*status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')
 [ "$st" = "blocked" ] || { rm -f "$MARK"; exit 0; }
 
 payload=$(cat)

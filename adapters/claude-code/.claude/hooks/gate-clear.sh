@@ -10,7 +10,7 @@
 GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
 MARK="$GATE-asked"
 [ -f "$GATE" ] && [ -f "$MARK" ] || exit 0
-grep -vE '^[[:space:]]*#' "$GATE" | grep -qE 'status:[[:space:]]*blocked' || { rm -f "$MARK"; exit 0; }
+grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked' || { rm -f "$MARK"; exit 0; }
 now=$(GATE_FILE="$GATE" python3 -c 'import hashlib,os;print(hashlib.sha256(open(os.environ["GATE_FILE"],"rb").read()).hexdigest())' 2>/dev/null)
 [ -n "$now" ] && [ "$now" = "$(head -1 "$MARK")" ] || exit 0
 qs=$(grep -E '^[[:space:]]*#' "$GATE")     # keep the questions as a record of what was released

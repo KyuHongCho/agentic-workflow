@@ -43,7 +43,18 @@ A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.jso
 prompt, or hard-blocking where no prompt would be shown. To make it bite, **mirror your grilling
 state to the gate file**:
 
-- **When grilling raises an open question** → write `status: blocked` to `${CLAUDE_PROJECT_DIR}/.gate`, then ask the human. (You can — you are not yet blocked.)
+- **When grilling raises an open question** → write `status: blocked` to `${CLAUDE_PROJECT_DIR}/.gate`,
+then **one `# <question>` line per open question**, then ask the human. (You can — you are not yet
+blocked.) Those `#` lines are what `gate-check.sh` puts into the approval prompt; without them it
+shows `(gate file lists no questions)` and the human is asked to release a gate whose reason they
+cannot see. Only the status line may begin with `status:` — a question that starts with it would be
+read as the status instead:
+
+  ```
+  status: blocked
+  # B1 does a sub-category OWN or CLASSIFY its items?
+  # B2 is items.slug mutable on update?
+  ```
 - **Only the human clears the gate — but they now do it in-session.** Your first `Write`/`Edit`/`Bash`
 after blocking raises an approval prompt carrying the open questions; approving it releases the gate
 (`gate-clear.sh`), declining leaves it shut. You still cannot release it yourself: `gate-clear.sh`

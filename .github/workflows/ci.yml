@@ -31,7 +31,13 @@ jobs:
         run: bash adapters/claude-code/.claude/hooks/ship-gate.selftest.sh
 
       - name: grilling-gate self-test
-        # 16 cases: pass / ask / block, plus four gate-clear scenarios. Same
-        # reason as above — a missing or broken hook exits 127, which does not
-        # block, so this gate fails OPEN too.
+        # 18 cases: pass / ask / block, four gate-clear scenarios, and two that
+        # pin the gate-file parse. Same reason as above — a missing or broken
+        # hook exits 127, which does not block, so this gate fails OPEN too.
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
+
+      - name: audit-gate self-test
+        # 8 cases. audit-gate.sh and audit-track.sh read the same .gate file,
+        # and a misparse there skips the audit loop silently rather than
+        # failing visibly — so it needs its own proof that it still trips.
+        run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh

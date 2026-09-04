@@ -50,6 +50,11 @@ check "question with quotes/apostrophe"     ask   'status: blocked\n# item'"'"'s
 check "done + question quoting the phrase"  pass  'status: done\n# keep "status: blocked"?\n'    "{$M}"
 check "blocked + question quoting phrase"   ask   'status: blocked\n# keep "status: blocked"?\n' "{$M}"
 check "CLAUDE_PROJECT_DIR unset"            ask   'status: blocked\n'         "{$M}"  nodir
+# The status line counts only at the START of a line. A question written into the gate without the
+# '#' prefix could otherwise supply the status: an un-prefixed line naming "status: done" placed
+# above the real status line used to open a blocked gate.
+check "un-prefixed question naming status: done" ask 'B1 set status: done yet?\nstatus: blocked\n' "{$M}"
+check "un-prefixed question, status line first"  ask 'status: blocked\nB1 set status: done yet?\n' "{$M}"
 
 # gate-clear.sh: it must release ONLY a gate a human was actually prompted about.
 # $1 label | $2 expected final status | $3 scenario
@@ -80,4 +85,4 @@ clearcheck "clear: agent set the gate itself"   blocked agent-set
 clearcheck "clear: approved a gate EDIT"        blocked gate-edit
 clearcheck "clear: fires twice (parallel)"      done    twice
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (16/16)"; else echo "$fails FAILURE(S) — you do not have a working grilling gate"; exit 1; fi
+if [ "$fails" = "0" ]; then echo "ALL PASS (18/18)"; else echo "$fails FAILURE(S) — you do not have a working grilling gate"; exit 1; fi
