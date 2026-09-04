@@ -4,5 +4,13 @@
 # The agent cannot run this itself while blocked — Write/Edit/Bash are gated. That is the point:
 # only a human can release the gate, so a human confirmation is structurally required.
 GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
-echo 'status: done' > "$GATE"
+# Keep the '#' question lines, exactly as gate-clear.sh does on the prompt path: the two release
+# paths must leave the same record of what was released, or the audit trail depends on which one
+# happened to be used.
+qs=$([ -f "$GATE" ] && grep -E '^[[:space:]]*#' "$GATE")
+{ printf 'status: done\n'
+  [ -n "$qs" ] && printf '%s\n' "$qs"
+  printf '# released by hand via bin/unblock, %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z (%z)')"
+} > "$GATE"
+rm -f "$GATE-asked"          # the prompt receipt is meaningless once released by hand
 echo "Gate cleared → done ($GATE). The agent can change code again."
