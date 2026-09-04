@@ -71,7 +71,7 @@ releases the gate.
 
 **This gate fails OPEN if either script is missing** — a broken `.claude/hooks` symlink makes the
 hook exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (16/16)`.
+`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (18/18)`.
 
 ## Hard-enforced shipping gate (Claude Code only)
 Publishing is **not** a stage — see `$AGENTIC_WORKFLOW_HOME/core/shared/shipping.md`. A `PreToolUse`
