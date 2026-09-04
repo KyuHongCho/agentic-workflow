@@ -180,20 +180,32 @@ jobs:
           # going over — throwing away a review it had already posted.
           # `timeout-minutes` above is the real guard: it stops work instead of binning it.
           claude_args: |
-            --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(wc:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           prompt: |
             You are the `review` role. Follow, from this checkout:
               core/roles/review.md      — what to produce
               core/shared/verify.md     — how to ground each finding, and revert every throwaway
             REPO: ${{ github.repository }}   PR: ${{ needs.gate.outputs.pr }}
 
-            Post exactly ONE pull request comment. For every finding give:
-              * the file path and line number
-              * before/after code
-              * why it matters
-            End the comment with a "Verification process" section stating which tests you ran,
-            any throwaway test or temporary amendment you made and removed, and the final
-            `git status --porcelain`. A finding you could not ground, mark as unverified.
+            Post each finding that lands on a line THIS PR CHANGED as an inline comment, using
+            mcp__github_inline_comment__create_inline_comment with confirmed: true. One call per
+            finding. Give before/after code and why it matters. Inline threads can be resolved
+            with GitHub's "Resolve conversation" button, which is the point — a plain PR comment
+            cannot be.
+
+            A finding that does NOT sit on a changed line — about the PR description, a missing
+            test, a whole file, or a claim you could not ground — does not go inline. Do not
+            stretch a finding onto a nearby line to make it fit.
+
+            Then post exactly ONE pull request comment containing:
+              * a one-line verdict
+              * any findings that could not go inline, each with file path and why it matters
+              * a "Verification process" section: which tests you ran, any throwaway test or
+                temporary amendment you made and removed, and the final `git status --porcelain`
+            A finding you could not ground, mark as unverified.
+
+            If an inline call fails, put that finding in the summary comment instead and say so.
+            Never let a failed inline call cost you the review.
       # The run log reports how MANY calls were denied but never WHICH, so a too-narrow tool list
       # could only be widened by guesswork. Upload the agent's transcript instead and read them.
       # `if: always()` because the failing run is the interesting one.
