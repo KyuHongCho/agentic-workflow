@@ -41,7 +41,7 @@ and auditors could not run anyway (their `Bash`/`Edit` would be gated).
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (8/8)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (14/14)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates

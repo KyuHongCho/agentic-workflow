@@ -37,7 +37,7 @@ jobs:
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
 
       - name: audit-gate self-test
-        # 8 cases. audit-gate.sh and audit-track.sh read the same .gate file,
+        # 14 cases. audit-gate.sh and audit-track.sh read the same .gate file,
         # and a misparse there skips the audit loop silently rather than
         # failing visibly — so it needs its own proof that it still trips.
         run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh
