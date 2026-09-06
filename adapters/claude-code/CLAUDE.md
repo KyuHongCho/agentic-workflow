@@ -17,7 +17,8 @@ After **every** role subagent returns, dispatch its auditor on the same artifact
 
 **Granularity: one `build ↔ build-audit` loop per vertical slice**, not one per plan — see
 `$AGENTIC_WORKFLOW_HOME/core/shared/vertical-slices.md`. Dispatch `build` for one slice, audit it,
-then move to the next. The audit gate counts one debt per role run, so two slices owe two audits.
+then move to the next. The audit gate records one entry per role completion, so two slices owe two
+audits — but a resumed role adds an entry each time it hands back, without producing a new artifact.
 
 - On `REVISE`, hand the objection list back to the role subagent **verbatim** — never just "try again" —
   then re-audit, and the auditor must confirm each prior objection is resolved before looking for new ones.
@@ -35,13 +36,15 @@ still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/h
 **refuses to let the turn end** while any audit is outstanding. You cannot skip the loop by forgetting it.
 
 The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
-and auditors could not run anyway (their `Bash`/`Edit` would be gated).
+and auditors could not run anyway (their `Bash`/`Edit` would be gated). A role that self-blocks on grilling
+still records a debt it does not owe — it produced a question, not an artifact — so once the gate is cleared,
+delete that line from `.audit-pending` instead of dispatching an auditor against it.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (14/14)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (19/19)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates

@@ -37,7 +37,12 @@ jobs:
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
 
       - name: audit-gate self-test
-        # 14 cases. audit-gate.sh and audit-track.sh read the same .gate file,
-        # and a misparse there skips the audit loop silently rather than
-        # failing visibly — so it needs its own proof that it still trips.
+        # 19 cases: the .gate parse both hooks share, a subagent's own report
+        # never acting as control, where the suppression branch sits, and a
+        # fourth set driving inputs the others never reach (a non-build role,
+        # its auditor, a two-entry ledger, an absent .gate, a nested
+        # agent_type) that asserts the ledger's contents, so a wrong NAME
+        # cannot hide behind a plausible count. Most of these skip the audit
+        # loop silently; one jams a discharged debt in the ledger — so it
+        # needs its own proof that it still trips.
         run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh

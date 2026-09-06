@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Self-test for audit-gate.sh + audit-track.sh — the audit-debt gate. Same reason as the other two
-# self-tests: a missing or broken hook exits 127, which does NOT block, so this gate fails OPEN with
-# no warning. Both hooks read ${CLAUDE_PROJECT_DIR}/.gate to decide whether to stand down, so the
-# cases below pin that parse: text written into the gate must never be mistaken for its status.
-# A misparse here is silent — the audit loop is skipped rather than anything visibly failing.
+# Self-test for audit-gate.sh + audit-track.sh — the audit-debt gate. Like the other two: a
+# missing or broken hook exits 127, which does NOT block, so this gate fails OPEN with no warning.
+#
+# Four things are pinned: the ${CLAUDE_PROJECT_DIR}/.gate parse both hooks stand down on; that a
+# subagent's report is never read as control, however it quotes the phrase; that suppression stays
+# inside the role branch, so an auditor can always clear the debt it discharged; and the ledger's
+# CONTENTS. The first two fail in silence; the third loudly but wrongly — the debt sticks.
 #
 #   bash audit-gate.selftest.sh
 #
@@ -28,7 +30,8 @@ gate () {
   else printf '  FAIL  %-50s -> rc=%s (expected %s)\n' "$1" "$got" "$2"; fails=$((fails+1)); fi
 }
 
-# audit-track.sh is a SubagentStop hook: it records one line of debt per role run.
+# audit-track.sh is a SubagentStop hook: it records one line of debt per role COMPLETION — a
+# resumed role adds one each time it hands back, so the count is not a count of artifacts.
 # $1 label | $2 expected debt lines | $3 gate contents
 track () {
   D=$(mktemp -d); printf '%b' "$3" > "$D/.gate"
@@ -49,6 +52,27 @@ track_msg () {
   python3 -c 'import json,sys; print(json.dumps({"agent_type":sys.argv[1],"last_assistant_message":sys.argv[2]}))' "$3" "$4" \
     | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
   got=$( [ -f "$D/.audit-pending" ] && wc -l < "$D/.audit-pending" | tr -d ' ' || echo 0 )
+  rm -rf "$D"
+  if [ "$got" = "$2" ]; then printf '  ok    %-50s -> %s\n' "$1" "$got"
+  else printf '  FAIL  %-50s -> %s (expected %s)\n' "$1" "$got" "$2"; fails=$((fails+1)); fi
+}
+
+# Ledger CONTENTS, not just its line count. Most of these would also trip a count — their kill
+# power is the inputs the cases above never use. Contents catches the one failure no count can
+# see: a hook that records the WRONG NAME.
+# $1 label | $2 expected ledger | $3 agent_type | $4 last_assistant_message | $5 starting ledger
+# $6 gate contents, or NOGATE for a fresh install with no .gate | $7 nested agent_type
+ledger () {
+  D=$(mktemp -d); [ "${6:-status: done\n}" = "NOGATE" ] || printf '%b' "${6:-status: done\n}" > "$D/.gate"
+  printf '%b' "$5" > "$D/.audit-pending"
+  python3 -c 'import json,sys; d={"agent_type":sys.argv[1],"last_assistant_message":sys.argv[2]};
+if len(sys.argv)>3 and sys.argv[3]: d["background_tasks"]=[{"agent_type":sys.argv[3]}]
+print(json.dumps(d))' "$3" "$4" "${7:-}" \
+    | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+  # A MISSING ledger is not an EMPTY one: reading both as "[]" lets a hook that deleted the file
+  # satisfy an "[]" expectation. Distinguish them — and don't leak the redirect's error either.
+  if [ -f "$D/.audit-pending" ]; then got="[$(tr '\n' ' ' < "$D/.audit-pending" | sed 's/ *$//')]"
+  else got='[NOFILE]'; fi
   rm -rf "$D"
   if [ "$got" = "$2" ]; then printf '  ok    %-50s -> %s\n' "$1" "$got"
   else printf '  FAIL  %-50s -> %s (expected %s)\n' "$1" "$got" "$2"; fails=$((fails+1)); fi
@@ -92,4 +116,10 @@ track_msg "role self-blocked, mirrored to .gate -> no debt"  0 build "$R_INLINE"
 # `case` in audit-track.sh, and nothing else here can see that placement.
 track_msg "auditor not suppressed by a blocked .gate"       0 build-audit "$R_INLINE" 'build\n' 'status: blocked\n'
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (14/14)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi
+ledger "every role records under its own name"    "[plan]"        plan        "$R_INLINE" ''
+ledger "the matching auditor clears that debt"    "[]"            plan-audit  "$R_INLINE" 'plan\n'
+ledger "one auditor clears ONE debt, not both"    "[build]"       build-audit "$R_INLINE" 'build\nbuild\n'
+ledger "no .gate yet (fresh install) -> debt"     "[build]"       build       "$R_INLINE" '' NOGATE
+ledger "nested agent_type is not the top-level"   "[]"            build-audit "$R_INLINE" 'build\n' 'status: done\n' build
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (19/19)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi

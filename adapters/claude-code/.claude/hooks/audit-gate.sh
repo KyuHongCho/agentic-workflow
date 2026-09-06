@@ -18,11 +18,15 @@ if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*
 pending=$(tr '\n' ' ' < "$STATE" | sed 's/ *$//')
 {
   echo "Blocked: the adversarial audit loop has not been run for: ${pending}."
-  echo "(One entry per role run — 'build build' means two slices landed and each owes its own audit.)"
+  echo "(One entry per role COMPLETION — a resumed role adds one more each time it hands back, so"
+  echo " 'build build' is two slices, or one slice whose role handed back twice with no audit in"
+  echo " between (resumed, or re-dispatched). Audit what actually exists.)"
   for r in $(printf '%s\n' $pending | sort -u); do
     n=$(printf '%s\n' $pending | grep -cxF "$r")
-    echo "  - dispatch the '${r}-audit' subagent ${n}x — once per artifact '${r}' produced, per \$AGENTIC_WORKFLOW_HOME/core/shared/audit-loop.md"
+    echo "  - dispatch the '${r}-audit' subagent once per artifact '${r}' produced (${n}x recorded), per \$AGENTIC_WORKFLOW_HOME/core/shared/audit-loop.md"
   done
+  echo "Each auditor run clears exactly ONE entry. Once every real artifact has been audited, delete"
+  echo "any leftover line from .audit-pending by hand — it is a hand-back that produced no artifact."
   echo "On REVISE, hand the objection list back to the role verbatim and re-audit."
   echo "Do not finish until every audit returns PASS, or escalate to the human with the full objection history."
 } >&2
