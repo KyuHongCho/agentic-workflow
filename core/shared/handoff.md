@@ -30,6 +30,10 @@ keeping the record a pointer.
 `handoffs/` or `plans/` directory publishes it to anyone who clones the repo. Write inside the repo
 only when it is private *and* that has been agreed.
 
+**Who asks: the coordinating thread.** A role or auditor produces the artifact and hands it back;
+it does not run this section itself. Where one agent plays every role, that agent is the
+coordinating thread — it asks and it writes.
+
 **Ask the human — do not choose for them.** Derive the project name from the repo root
 (`~/work/crop-climate-advisor` → `crop-climate-advisor`), then offer:
 

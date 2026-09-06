@@ -25,8 +25,8 @@ pending=$(tr '\n' ' ' < "$STATE" | sed 's/ *$//')
     n=$(printf '%s\n' $pending | grep -cxF "$r")
     echo "  - dispatch the '${r}-audit' subagent once per artifact '${r}' produced (${n}x recorded), per \$AGENTIC_WORKFLOW_HOME/core/shared/audit-loop.md"
   done
-  echo "Each auditor run clears exactly ONE entry. Once every real artifact has been audited, delete"
-  echo "any leftover line from .audit-pending by hand — it is a hand-back that produced no artifact."
+  echo "Each auditor run clears exactly ONE entry. If an entry has no artifact behind it (a hand-back"
+  echo "that produced none), say so and ask the human to clear it — never edit .audit-pending yourself."
   echo "On REVISE, hand the objection list back to the role verbatim and re-audit."
   echo "Do not finish until every audit returns PASS, or escalate to the human with the full objection history."
 } >&2

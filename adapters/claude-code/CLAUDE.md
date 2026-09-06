@@ -37,6 +37,8 @@ document lives — you do, with the human. So on `plan-audit` `PASS`, ask with `
 **one prompt at a time, in this order**, never bundled:
 
 1. **Confirm the breakdown** the plan states — granularity, blocking edges, what to merge or split.
+   If they change it, the plan document is now stale: hand their answer back to `plan` verbatim,
+   re-run `plan-audit`, and restart at prompt 1. Never save or dispatch a superseded breakdown.
 2. **Where to save the plan document** — then write it there, **in full**.
 3. **Whether to delegate to `build ↔ build-audit`**, and for which slice. On yes, the dispatch
    carries the plan document, the path it was saved to at prompt 2, **and the slice chosen here** —
@@ -56,9 +58,10 @@ still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/h
 **refuses to let the turn end** while any audit is outstanding. You cannot skip the loop by forgetting it.
 
 The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
-and auditors could not run anyway (their `Bash`/`Edit` would be gated). A role that self-blocks on grilling
-still records a debt it does not owe — it produced a question, not an artifact — so once the gate is cleared,
-delete that line from `.audit-pending` instead of dispatching an auditor against it.
+and auditors could not run anyway (their `Bash`/`Edit` would be gated). Whether a role that self-blocks on
+grilling records a debt depends on `.gate` when its `SubagentStop` fires, and the ledger holds bare role names,
+so a leftover line cannot be attributed to the role that blocked — it may be another role's real, unaudited
+debt. Say so and ask the human to clear it; never edit `.audit-pending` yourself.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply

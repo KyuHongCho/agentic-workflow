@@ -25,9 +25,10 @@ case "$agent" in
     # clearing branch too and an auditor can never pay off the debt it just discharged. The
     # selftest case "auditor not suppressed by a blocked .gate" is what stops that coming back.
     #
-    # Cost: a role cannot write .gate before its own SubagentStop fires, so a self-blocked role
-    # always records a debt it does not owe. It surfaces once the human clears the gate; delete
-    # the line. Loud and recoverable beats an audit that silently never happens.
+    # Cost: whether a self-blocked role owes a debt depends on .gate at SubagentStop, not on the
+    # role. Blocked gate -> no line; otherwise a line it does not owe. So a leftover line cannot be
+    # attributed to the role that just blocked — the ledger holds bare role names — and may be
+    # another role's real, unaudited debt. Loud and recoverable beats an audit that never happens.
     if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked'; then exit 0; fi
     # One line per COMPLETION, NOT deduped: two slices owe two audits, per
     # core/shared/vertical-slices.md. A resumed role hands back repeatedly and so records more
