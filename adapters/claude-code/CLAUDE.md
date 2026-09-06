@@ -30,6 +30,26 @@ This is enforced mechanically — see the audit gate below. Auditors hold `Edit`
 `core/shared/verify.md` requires them to amend code and run tests to establish facts; they are required
 to revert everything and report `git status --porcelain`.
 
+## After `plan-audit` PASS: three questions you (the main thread) own
+The `plan` subagent returns its **plan document** in the hand-back message and stops there. It has no
+user-facing tool, and by `$AGENTIC_WORKFLOW_HOME/core/roles/plan.md` it does not choose where that
+document lives — you do, with the human. So on `plan-audit` `PASS`, ask with `AskUserQuestion`,
+**one prompt at a time, in this order**, never bundled:
+
+1. **Confirm the breakdown** the plan states — granularity, blocking edges, what to merge or split.
+2. **Where to save the plan document** — then write it there, **in full**.
+3. **Whether to delegate to `build ↔ build-audit`**, and for which slice. On yes, the dispatch
+   carries the plan document, the path it was saved to at prompt 2, **and the slice chosen here** —
+   the three things `$AGENTIC_WORKFLOW_HOME/core/roles/build.md` § *Inputs* expects, for its step 0
+   and step 1.
+
+For the location options, the filename and how `<n>` is computed, **run the `handoff` skill** — it
+owns those mechanics for every workflow document, plan documents included. Do not restate them here
+and do not work them out yourself.
+
+A `PASS` is not permission to build: the plan stage ends at `PASS`, and if the answer to prompt 3 is
+"not now", the turn ends with the plan saved and nothing dispatched.
+
 ## Hard-enforced audit gate (Claude Code only)
 A `SubagentStop` hook (`.claude/hooks/audit-track.sh`) records which roles have run and which audits are
 still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/hooks/audit-gate.sh`)

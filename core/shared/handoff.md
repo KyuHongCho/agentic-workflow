@@ -17,9 +17,56 @@ Two boundaries need it, and they lose different things:
   the human stopping for the day.
 
 ## Where to write it
-**Default to outside the repository** — the OS temp directory, or a gitignored path. A handoff
-describes internal process; a tracked `handoffs/` directory publishes it to anyone who clones the
-repo. Write inside the repo only when it is private *and* that has been agreed.
+
+**These next two sections — *Where to write it* and *What to name it* — govern any workflow document
+this system produces, not just handoff records, and so does § *Rules*.** Today there are two kinds: a
+**handoff record** (this file) and a **plan document** (`../roles/plan.md`). Read `<kind>` below as
+whichever you are writing — `handoff` or `plan`. What belongs to the handoff record alone is the
+boundary split above, § *Stage handoff*, § *Session handoff*, and the § *Rules* bullets about the
+record itself — the `recorded:` clock, `status: blocked`, the receiving stage's confirmation, and
+keeping the record a pointer.
+
+**Default to outside the repository.** A workflow document describes internal process; a tracked
+`handoffs/` or `plans/` directory publishes it to anyone who clones the repo. Write inside the repo
+only when it is private *and* that has been agreed.
+
+**Ask the human — do not choose for them.** Derive the project name from the repo root
+(`~/work/crop-climate-advisor` → `crop-climate-advisor`), then offer:
+
+1. `<workspace>/documents/<project-name>/` — **the default keepsake location**, beside that
+   project's other documents. Durable, outside the repo, and where the last one will be found.
+2. **The OS temp directory** — satisfies "outside the repo", but is ephemeral: gone on reboot, so
+   the next session may find nothing.
+3. **A gitignored path inside the repo** — beside the work. Only if `.gitignore` already covers it;
+   check, and say what you found.
+4. **Somewhere else** — let them name a path.
+
+## What to name it
+
+`<kind>-<project-name>_<n>-<summary>.md` — `<kind>` is `handoff` or `plan`, `<project-name>` the one
+you derived above, then:
+
+- **`<n>` — the next number in the chosen directory.** Read it off the directory; never guess it, and
+  never restart at 1 because you personally have not written one before. **The sequence is per project
+  *and per kind*:** the recipe matches `^<kind>-<project-name>_`, so `handoff-` and `plan-` number
+  separately by construction. Within one kind the boundary makes no difference — a stage handoff and a
+  session handoff share that kind's run of numbers:
+
+  ```bash
+  ls <dir> | sed -n 's/^<kind>-<project-name>_\([0-9][0-9]*\).*/\1/p' | sort -n | tail -1
+  ```
+
+  Empty output means this is `1`. Names that do not match are documents of another kind, or older,
+  pre-convention files — leave them where they are and do not count them.
+
+- **`<summary>` — a few kebab-case words saying what this document is *about*.**
+  `nasa-power-mcp-build`, `eval-harness-slice-2`, `the-cap-that-binned-reviews`. The point is that a
+  human scanning the directory can pick the right one without opening any of them, so name the work,
+  not the mechanism: `session-to-session` is true of nearly every file there and therefore
+  distinguishes nothing.
+
+If the name you land on already exists — whichever kind it is — say so and ask whether to add or
+supersede — **never overwrite silently.**
 
 ## Stage handoff
 
@@ -30,6 +77,7 @@ repo. Write inside the repo only when it is private *and* that has been agreed.
 
 ```
 from: <stage>          to: <stage>
+recorded: <date + time + timezone, read off the machine clock — see Rules>
 status: done | blocked
 artifact: <path or link>
 slice: <which vertical slice this is> (blocked-by: <slices> | none)
@@ -44,6 +92,7 @@ Same discipline, more context — the reader shares none of yours.
 
 ```
 from: session <n>      to: session <n+1>
+recorded: <date + time + timezone, read off the machine clock — see Rules>
 status: done | blocked
 focus-next: <the one thing the next session is for>
 
@@ -65,6 +114,17 @@ The `traps` field earns its place: the costliest session failures in practice ar
 technical, and they are invisible to a reader who assumes a working setup.
 
 ## Rules
+- **Stamp it from the machine, never from memory.** Run the clock and paste what it prints:
+
+  ```bash
+  date '+%Y-%m-%d %H:%M:%S %Z (%z)'     # -> 2026-09-01 06:18:31 BST (+0100)
+  ```
+
+  Do not write the date from your own sense of what day it is. An agent's notion of "today" is
+  injected context: it can be stale, and it carries neither a time of day nor a timezone — both of
+  which the reader needs, because a handoff may be written from a machine in a different zone from
+  the person reading it. Age is the first thing the next reader needs, because every `state` value
+  in a handoff decays, and one that cannot be dated cannot be trusted or superseded.
 - Never hand off while `status: blocked`.
 - The receiving stage or session must confirm it has what it needs; if not → invoke `grilling.md`.
 - Keep the record minimal — it is an index/pointer, not a copy of the artifact. Reference specs,
