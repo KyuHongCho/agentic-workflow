@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Save a workflow document — a handoff record for a boundary (stage → stage, session → session), or a plan document from the plan role. Follow core/shared/handoff.md, ask the human where it goes, and name it <kind>-<project-name>_<n>-<summary>.md. Use when a plan is audited PASS, when a stage's artifact is audited PASS, or when a context is about to end with work unfinished.
+description: Save a workflow document — a handoff record for a boundary (stage → stage, session → session), or a plan document from the plan role. Follow core/shared/handoff.md, ask the human where it goes, and name it <kind>-<project-name>_<n>-<summary>.md. Use when a plan is audited PASS, or when a context is about to end with work unfinished.
 ---
 
 # handoff

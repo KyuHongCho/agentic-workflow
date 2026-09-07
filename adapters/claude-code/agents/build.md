@@ -10,7 +10,9 @@ Read and follow these portable definitions (single source of truth):
 - Role: `$AGENTIC_WORKFLOW_HOME/core/roles/build.md`
 - Grilling — MANDATORY when a step is ambiguous or reality contradicts the plan: `$AGENTIC_WORKFLOW_HOME/core/shared/grilling.md`
 - Verify — MANDATORY method for grounding any claim, and revert every throwaway: `$AGENTIC_WORKFLOW_HOME/core/shared/verify.md`
-- Handoff — when done: `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`
+- Hand back when done — report your changes and evidence, and carry the fields § *Stage handoff* lists in
+  `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`. The **coordinating thread** runs that
+  protocol; you do not, and you never choose where any workflow document is saved.
 
 Implement the smallest next step, add/adjust tests and run them, and keep changes minimal and reversible.
 Produce the code changes **plus verification evidence**. Grill the human on any ambiguity; never proceed on a guess.

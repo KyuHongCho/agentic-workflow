@@ -27,7 +27,9 @@
   test, re-fetch the diff, or chase an external document: each blocked attempt costs a turn, and a
   run that exhausts its turns reports nothing at all.
 - **When acceptance criteria or intended behaviour are unclear → invoke `../shared/grilling.md`.**
-- **When done → the findings go to `../auditors/review-audit.md` via `../shared/audit-loop.md`. Only on `PASS` invoke `../shared/handoff.md`** to return findings to the human (and to `build` for fixes if FAIL).
+- **When done → the findings go to `../auditors/review-audit.md` via `../shared/audit-loop.md`.
+  On `PASS` hand back and stop** — the **coordinating thread** returns your findings to the human
+  per `../shared/handoff.md` § *Stage handoff*, and dispatches `build` for fixes if FAIL.
 
 ## Next
 `review-audit` (mandatory, adversarial) → then the human on `PASS` (and `build` on FAIL).

@@ -52,6 +52,24 @@ and do not work them out yourself.
 A `PASS` is not permission to build: the plan stage ends at `PASS`, and if the answer to prompt 3 is
 "not now", the turn ends with the plan saved and nothing dispatched.
 
+## After `build-audit` PASS: the hand-back is the handoff
+**No role subagent ever runs `handoff.md`** — the protocol opens with a question to the human, and no
+role or auditor holds a user-facing tool. Each one reports its artifact and stops; **that report is
+the stage handoff payload**, carrying the fields
+`$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md` § *Stage handoff* lists.
+
+Build's case: on `build-audit` `PASS`, **carry that report into the `review` dispatch and write no
+file**. The dispatch is the handoff — inside one live session it reaches every reader a file would.
+Keep the role's hand-back verbatim rather than in your own memory; a field you can no longer
+reconstruct is re-asked of the role, never invented.
+
+Write an actual record only at a **session boundary** (a context ending with work unfinished) or
+**because the human asked for one** — then run the `handoff` skill, which owns the location question
+and the filename.
+
+Handing off passes the work along; it does not publish it. Committing, pushing and the PR remain the
+separate consent sequence in *You (the main thread) own the consent sequence*, below.
+
 ## Hard-enforced audit gate (Claude Code only)
 A `SubagentStop` hook (`.claude/hooks/audit-track.sh`) records which roles have run and which audits are
 still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/hooks/audit-gate.sh`)

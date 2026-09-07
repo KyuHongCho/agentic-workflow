@@ -10,7 +10,9 @@ Read and follow these portable definitions (single source of truth):
 - Role: `$AGENTIC_WORKFLOW_HOME/core/roles/review.md`
 - Grilling — MANDATORY when acceptance criteria or intent are unclear: `$AGENTIC_WORKFLOW_HOME/core/shared/grilling.md`
 - Verify — MANDATORY method for grounding any claim, and revert every throwaway: `$AGENTIC_WORKFLOW_HOME/core/shared/verify.md`
-- Handoff — when done: `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`
+- Hand back when done — report your findings, and carry the fields § *Stage handoff* lists in
+  `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`. The **coordinating thread** runs that
+  protocol; you do not, and you never choose where any workflow document is saved.
 
 Check correctness, plan-adherence, whether the tests actually verify behaviour, simplicity, and safety.
 Produce findings (PASS/FAIL + issues, each with `file:line`). Do **not** write *product* code — but

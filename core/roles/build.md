@@ -5,7 +5,8 @@
 ## Inputs
 - **The approved plan document, where it is saved, and which slice to build** — all three handed
   over by the coordinating thread when it dispatches `build`; step 0 reads the document there and
-  step 1 takes the slice. Where a stage record exists it carries them (`artifact:`, `slice:`,
+  step 1 takes the slice. **The dispatch is the normal carrier.** Where a stage record exists as
+  well — a fresh context after a session boundary — it carries them (`artifact:`, `slice:`,
   `frontier:` — `../shared/handoff.md`), and the record is read alongside the document. If a
   dispatch arrives without all three, ask for what is missing per `../shared/grilling.md` before
   writing code.
@@ -22,7 +23,10 @@
 1. Take the next slice from the **frontier** (all blockers done) and implement it **end-to-end**, per `../shared/vertical-slices.md`. One slice at a time — each slice gets its own `build-audit`.
 2. Add/adjust tests; run them.
 3. Keep changes minimal and reversible; match existing style.
-4. Record what changed and the verification evidence — including **how to demo this slice** (the command, test, or output that shows it working).
+4. Record what changed and the verification evidence — including **how to demo this slice** (the
+   command, test, or output that shows it working). **This report is the stage handoff payload:**
+   carry the fields `../shared/handoff.md` § *Stage handoff* lists — `status:`, `artifact:`,
+   `slice:`, `frontier:`, `inputs-for-next:`.
 5. Leave the slice green and demoable before starting the next one.
 
 ## Produces
@@ -37,7 +41,10 @@ The **code changes + evidence** they work (test output, run output).
   `../shared/grilling.md`.** Don't guess. This is the same gate as step 0, later: step 0 is the
   deliberate up-front pass over the whole plan document; this bullet is for what only surfaces once
   you are in the code. Clearing step 0 does not spend it.
-- **When done → the changes + evidence go to `../auditors/build-audit.md` via `../shared/audit-loop.md`. Only on `PASS` invoke `../shared/handoff.md`** to pass to `review`.
+- **When done → the changes + evidence go to `../auditors/build-audit.md` via `../shared/audit-loop.md`.
+  On `PASS` hand back and stop** — the **coordinating thread** carries your report to `review` per
+  `../shared/handoff.md` § *Stage handoff*. You never run that protocol yourself: it opens with a
+  question to the human, and you hold no tool that can ask one.
 
 ## Next
 `build-audit` (mandatory, adversarial) → then `review` on `PASS`.

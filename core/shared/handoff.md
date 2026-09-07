@@ -1,7 +1,9 @@
 # Shared skill: handoff
 
-The protocol for passing work across a **boundary**. Tool-agnostic; invoked by every role and
-auditor. (Cross-cutting concern — factored out of the roles so it lives in one place.)
+The protocol for passing work across a **boundary** — a cross-cutting concern, factored out of the
+roles so it lives in one place. Tool-agnostic. **Run by the coordinating thread**, at every boundary;
+a role or auditor hands its artifact back and never runs this protocol itself (§ *Where to write it*,
+§ *Stage handoff*).
 
 Two boundaries need it, and they lose different things:
 
@@ -12,7 +14,11 @@ Two boundaries need it, and they lose different things:
   everything not written down is gone, and the next session cannot ask you what you meant.
 
 ## When to invoke
-- **Stage:** at the end of a stage, once its artifact is produced **and** no open `grilling` questions remain.
+- **Stage:** invoked by the **coordinating thread** at the end of a stage, once its artifact is
+  produced **and** no open `grilling` questions remain. For a stage → stage **handoff record**,
+  inside a live session the **dispatch to the next stage is the handoff** and no record file is
+  written — see § *Stage handoff*. This governs the record only: a **plan document** is still saved
+  when the plan stage ends, per `../roles/plan.md:39` and § *Where to write it*.
 - **Session:** before a context ends with work unfinished — a slice completed, a budget exhausted, or
   the human stopping for the day.
 
@@ -74,10 +80,24 @@ supersede — **never overwrite silently.**
 
 ## Stage handoff
 
-1. **Record the artifact** in the agreed location.
+**Who does what.** The role or auditor **hands its artifact back** and never chooses where a workflow
+document is saved — § *Where to write it* above already assigns that to the **coordinating thread**,
+including the case where one agent plays every role. Inside a live session the thread's **dispatch to the next
+stage is the handoff**: the thread that would write the pointer is the thread that composes the
+dispatch, so a file has no reader the dispatch does not already reach. The thread writes an actual
+record in two cases only — a **session boundary** (§ *Session handoff*, a context ending with work
+unfinished) or **because the human asked**. Both are the thread's to evaluate; neither is ever put to
+a subagent.
+
+**The fields below are a payload spec, not merely a file format** — the same fields travel whether
+they go into a dispatch or onto disk. Keep the role's hand-back **verbatim**: a dispatch is itself a
+fresh context, and the thread can compose it only while it still holds the facts. A field the thread
+can no longer reconstruct is re-asked of the role, never invented.
+
+1. **Record the artifact** — named in the dispatch, or written to the agreed location.
 2. **Set status:** `done` (ready for the next stage) or `blocked` (open questions from `grilling` remain — do **not** hand off).
-3. **Write the record** (format below).
-4. The next stage **reads the handoff record + artifact** as its input.
+3. **Carry the payload** (format below).
+4. The next stage reads **the dispatch** (live thread) or **the record + artifact** (fresh context) as its input.
 
 ```
 from: <stage>          to: <stage>
