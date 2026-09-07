@@ -22,7 +22,8 @@ runs once at the end.
 1. The `role` produces its artifact.
 2. Invoke the `auditor` **adversarially** against the artifact (it grounds every objection via `verify.md`) →
    verdict: `PASS`, or `REVISE` + a **structured objection list** (each objection: *what's wrong · the evidence · what would resolve it*).
-3. `PASS` → done → proceed to `handoff.md`.
+3. `PASS` → done → the **coordinating thread** proceeds per `handoff.md`. The `role` hands its
+   artifact back and stops; it does not run that protocol.
 4. `REVISE` → **deliver the objection list to the `role` as explicit input** (never just "try again"). The role revises by
    **addressing each objection** — not starting over — and produces a new version → return to step 2, where the auditor
    first **confirms each prior objection is actually resolved** (via `verify.md`) before looking for new ones.

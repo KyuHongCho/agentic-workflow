@@ -17,7 +17,9 @@ After **every** role subagent returns, dispatch its auditor on the same artifact
 
 **Granularity: one `build ↔ build-audit` loop per vertical slice**, not one per plan — see
 `$AGENTIC_WORKFLOW_HOME/core/shared/vertical-slices.md`. Dispatch `build` for one slice, audit it,
-then move to the next. The audit gate counts one debt per role run, so two slices owe two audits.
+then move to the next. The audit gate records one **open entry per subagent**, so two slices are two
+subagents and still owe two audits — while a role that hands back more than once for the *same*
+artifact (it paused for the human, or you re-dispatched it) updates its entry instead of adding one.
 
 - On `REVISE`, hand the objection list back to the role subagent **verbatim** — never just "try again" —
   then re-audit, and the auditor must confirm each prior objection is resolved before looking for new ones.
@@ -29,19 +31,69 @@ This is enforced mechanically — see the audit gate below. Auditors hold `Edit`
 `core/shared/verify.md` requires them to amend code and run tests to establish facts; they are required
 to revert everything and report `git status --porcelain`.
 
+## After `plan-audit` PASS: three questions you (the main thread) own
+The `plan` subagent returns its **plan document** in the hand-back message and stops there. It has no
+user-facing tool, and by `$AGENTIC_WORKFLOW_HOME/core/roles/plan.md` it does not choose where that
+document lives — you do, with the human. So on `plan-audit` `PASS`, ask with `AskUserQuestion`,
+**one prompt at a time, in this order**, never bundled:
+
+1. **Confirm the breakdown** the plan states — granularity, blocking edges, what to merge or split.
+   If they change it, the plan document is now stale: hand their answer back to `plan` verbatim,
+   re-run `plan-audit`, and restart at prompt 1. Never save or dispatch a superseded breakdown.
+2. **Where to save the plan document** — then write it there, **in full**.
+3. **Whether to delegate to `build ↔ build-audit`**, and for which slice. On yes, the dispatch
+   carries the plan document, the path it was saved to at prompt 2, **and the slice chosen here** —
+   the three things `$AGENTIC_WORKFLOW_HOME/core/roles/build.md` § *Inputs* expects, for its step 0
+   and step 1.
+
+For the location options, the filename and how `<n>` is computed, **run the `handoff` skill** — it
+owns those mechanics for every workflow document, plan documents included. Do not restate them here
+and do not work them out yourself.
+
+A `PASS` is not permission to build: the plan stage ends at `PASS`, and if the answer to prompt 3 is
+"not now", the turn ends with the plan saved and nothing dispatched.
+
+## After `build-audit` PASS: the hand-back is the handoff
+**No role subagent ever runs `handoff.md`** — the protocol opens with a question to the human, and no
+role or auditor holds a user-facing tool. Each one reports its artifact and stops; **that report is
+the stage handoff payload**, carrying the fields
+`$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md` § *Stage handoff* lists.
+
+**A role supplies what it can; you complete the rest.** After `plan-audit` PASS the plan's
+`artifact:` and `slice:` do not exist yet — prompts 2 and 3 above constitute them — so `plan` names
+the document itself and you fill in the path you saved it to and the slice the human chose. A field
+a role could not know is yours to complete, never its to invent.
+
+Build's case: on `build-audit` `PASS`, **carry that report into the `review` dispatch and write no
+file**. The dispatch is the handoff — inside one live session it reaches every reader a file would.
+Keep the role's hand-back verbatim rather than in your own memory; a field you can no longer
+reconstruct is re-asked of the role, never invented.
+
+Write an actual record only at a **session boundary** (a context ending with work unfinished) or
+**because the human asked for one** — then run the `handoff` skill, which owns the location question
+and the filename.
+
+Handing off passes the work along; it does not publish it. Committing, pushing and the PR remain the
+separate consent sequence in *You (the main thread) own the consent sequence*, below.
+
 ## Hard-enforced audit gate (Claude Code only)
 A `SubagentStop` hook (`.claude/hooks/audit-track.sh`) records which roles have run and which audits are
 still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/hooks/audit-gate.sh`)
 **refuses to let the turn end** while any audit is outstanding. You cannot skip the loop by forgetting it.
 
 The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
-and auditors could not run anyway (their `Bash`/`Edit` would be gated).
+and auditors could not run anyway (their `Bash`/`Edit` would be gated). Whether a role that self-blocks on
+grilling records a debt depends on `.gate` when its `SubagentStop` fires, so a leftover entry is still
+possible — but every entry now names its role, the `agent_id` that recorded it and the UTC time, so you can
+say *which* hand-back it came from and whether an artifact exists behind it. If none does, say so and ask
+the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`; never edit
+`.audit-pending` yourself.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (8/8)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (30/30)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates

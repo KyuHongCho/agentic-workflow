@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# The HUMAN runs this (from the project root, in a normal terminal) to drop a stale .audit-pending
+# entry — one whose role handed back without producing an artifact. The agent must never run it: an
+# agent that can retire its own audit debt is not gated. Entries are dropped BY agent_id, never by
+# line position, so the wrong role cannot be cleared by a miscount. A LEGACY entry predating the
+# metadata has no agent_id, so it is dropped by ROLE NAME instead — those really are interchangeable
+# bare names, and refusing to clear them would leave hand-editing as the only exit.
+STATE="${CLAUDE_PROJECT_DIR:-$PWD}/.audit-pending"
+[ -f "$STATE" ] && [ -s "$STATE" ] || { echo "No outstanding audit debt in $STATE."; exit 0; }
+# An empty argument is not an id: '$2==""' would match every legacy line, so treat it as "just list".
+if [ $# -eq 0 ] || [ -z "$1" ]; then
+  echo "Outstanding audit debt in $STATE:"
+  legacy=0
+  # '|| [ -n "$r" ]' so a final line with no trailing newline is still listed.
+  while IFS="$(printf '\t')" read -r r id ts || [ -n "$r" ]; do
+    [ -n "$r" ] || continue
+    if [ -n "$id" ]; then printf '  %-8s agent %-20s recorded %s\n' "$r" "$id" "${ts:-unknown}"
+    else legacy=1; printf '  %-8s (no agent id: predates the metadata)\n' "$r"; fi
+  done < "$STATE"
+  echo; echo "Drop one with:  $0 <agent_id>"
+  [ "$legacy" = 1 ] && echo "                $0 <role>          for an entry with no agent id"
+  echo "Drop it only if that role handed back WITHOUT producing an artifact."
+  echo "An auditor clears the OLDEST entry for its role, so if a role's slices were audited out of"
+  echo "order the surviving entry may carry the AUDITED run's id and time. Confirm the id you are"
+  echo "about to drop really is the hand-back with no artifact behind it."
+  exit 0
+fi
+tmp="$STATE.tmp.$$"
+if awk -F'\t' -v a="$1" 'BEGIN{done=0} ($2==a || (NF==1 && $1==a)) && !done {done=1; next} {print} END{exit !done}' "$STATE" > "$tmp"; then
+  mv "$tmp" "$STATE"; echo "Dropped the entry matching '$1'."   # not necessarily an agent id: a legacy entry matches by role
+  [ -s "$STATE" ] && { echo "Still owed:"; cut -f1,2 < "$STATE" | sed 's/^/  /'; } || echo "Ledger now empty."
+else
+  rm -f "$tmp"; echo "No entry matching '$1' (an agent id, or a role name for a legacy entry with none)."; echo "Run with no arguments to list what is owed."; exit 1
+fi

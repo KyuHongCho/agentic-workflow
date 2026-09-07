@@ -13,7 +13,12 @@ Read and follow these portable definitions (single source of truth):
 - Role: `$AGENTIC_WORKFLOW_HOME/core/roles/plan.md`
 - Grilling — MANDATORY when anything is unclear, one question at a time: `$AGENTIC_WORKFLOW_HOME/core/shared/grilling.md`
 - Verify — MANDATORY method for grounding any claim, and revert every throwaway: `$AGENTIC_WORKFLOW_HOME/core/shared/verify.md`
-- Handoff — when done: `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`
+- Hand back when done — report your plan document, and carry the fields § *Stage handoff* lists in
+  `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md`. The **coordinating thread** runs that
+  protocol; you do not, and you never choose where any workflow document is saved. **Supply what you
+  can and leave the rest to the thread:** at this boundary `artifact:` and `slice:` are settled by
+  the human *after* you hand back, so name the document itself as the artifact — never invent a path
+  it has not been saved to, and never pick the slice to build.
 
 Do not write *product* code. Produce a **plan** artifact — but throwaway tests and temporary code
 amendments are **required** by `verify.md` to check a claim the plan rests on; revert every one of

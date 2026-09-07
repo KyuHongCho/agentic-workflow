@@ -3,7 +3,12 @@
 **One-line:** Independently check the implementation against the plan and standards.
 
 ## Inputs
-- The changes + evidence, and the original plan (received via `../shared/handoff.md`).
+- The changes + evidence, and the original plan — handed over by the coordinating thread when it
+  dispatches `review`. **The dispatch is the normal carrier.** Where a stage record exists as well —
+  a fresh context after a session boundary — it carries the pointers (`artifact:`, `slice:`,
+  `frontier:` — `../shared/handoff.md`), and the record is read alongside the changes. If a dispatch
+  arrives without the evidence or the plan, ask for what is missing per `../shared/grilling.md`
+  before reviewing.
 
 ## Process
 1. Check: correctness, plan-adherence, whether the tests actually verify the behaviour, simplicity, safety.
@@ -27,7 +32,11 @@
   test, re-fetch the diff, or chase an external document: each blocked attempt costs a turn, and a
   run that exhausts its turns reports nothing at all.
 - **When acceptance criteria or intended behaviour are unclear → invoke `../shared/grilling.md`.**
-- **When done → the findings go to `../auditors/review-audit.md` via `../shared/audit-loop.md`. Only on `PASS` invoke `../shared/handoff.md`** to return findings to the human (and to `build` for fixes if FAIL).
+- **When done → hand back and stop.** The findings go to `../auditors/review-audit.md` via
+  `../shared/audit-loop.md`, which runs after you have handed back — you never see its verdict: a
+  `REVISE` comes back to you as an objection list, a `PASS` does not come back at all. **On `PASS`
+  the review stage ends** — the **coordinating thread** returns your findings to the human per
+  `../shared/handoff.md` § *Stage handoff*, and dispatches `build` for fixes if they are FAIL.
 
 ## Next
 `review-audit` (mandatory, adversarial) → then the human on `PASS` (and `build` on FAIL).
