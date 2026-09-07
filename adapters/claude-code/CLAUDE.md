@@ -58,6 +58,11 @@ role or auditor holds a user-facing tool. Each one reports its artifact and stop
 the stage handoff payload**, carrying the fields
 `$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md` § *Stage handoff* lists.
 
+**A role supplies what it can; you complete the rest.** After `plan-audit` PASS the plan's
+`artifact:` and `slice:` do not exist yet — prompts 2 and 3 above constitute them — so `plan` names
+the document itself and you fill in the path you saved it to and the slice the human chose. A field
+a role could not know is yours to complete, never its to invent.
+
 Build's case: on `build-audit` `PASS`, **carry that report into the `review` dispatch and write no
 file**. The dispatch is the handoff — inside one live session it reaches every reader a file would.
 Keep the role's hand-back verbatim rather than in your own memory; a field you can no longer

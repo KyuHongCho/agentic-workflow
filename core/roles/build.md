@@ -25,8 +25,9 @@
 3. Keep changes minimal and reversible; match existing style.
 4. Record what changed and the verification evidence — including **how to demo this slice** (the
    command, test, or output that shows it working). **This report is the stage handoff payload:**
-   carry the fields `../shared/handoff.md` § *Stage handoff* lists — `status:`, `artifact:`,
-   `slice:`, `frontier:`, `inputs-for-next:`.
+   carry **every** field `../shared/handoff.md` § *Stage handoff* lists, read off the template
+   there rather than from a remembered subset. That section states the one exemption — `recorded:`,
+   which stamps a written record and not a dispatch.
 5. Leave the slice green and demoable before starting the next one.
 
 ## Produces
@@ -41,9 +42,11 @@ The **code changes + evidence** they work (test output, run output).
   `../shared/grilling.md`.** Don't guess. This is the same gate as step 0, later: step 0 is the
   deliberate up-front pass over the whole plan document; this bullet is for what only surfaces once
   you are in the code. Clearing step 0 does not spend it.
-- **When done → the changes + evidence go to `../auditors/build-audit.md` via `../shared/audit-loop.md`.
-  On `PASS` hand back and stop** — the **coordinating thread** carries your report to `review` per
-  `../shared/handoff.md` § *Stage handoff*. You never run that protocol yourself: it opens with a
+- **When done → hand back and stop.** The changes + evidence go to `../auditors/build-audit.md` via
+  `../shared/audit-loop.md`, which runs after you have handed back — you never see its verdict: a
+  `REVISE` comes back to you as an objection list, a `PASS` does not come back at all. **On `PASS`
+  the build stage ends for this slice** — the **coordinating thread** carries your report to `review`
+  per `../shared/handoff.md` § *Stage handoff*. You never run that protocol yourself: it opens with a
   question to the human, and you hold no tool that can ask one.
 
 ## Next

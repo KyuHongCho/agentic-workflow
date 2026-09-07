@@ -91,9 +91,13 @@ unfinished) or **because the human asked**. Both are the thread's to evaluate; n
 a subagent.
 
 **The fields below are a payload spec, not merely a file format** — the same fields travel whether
-they go into a dispatch or onto disk. Keep the role's hand-back **verbatim**: a dispatch is itself a
-fresh context, and the thread can compose it only while it still holds the facts. A field the thread
-can no longer reconstruct is re-asked of the role, never invented.
+they go into a dispatch or onto disk, with **one exception: `recorded:` belongs to a written record
+alone.** It exists so a later reader can date facts that decay (§ *Rules*); a dispatch is read in the
+session that composes it, so the stamp would restate what the delivery already shows. A dispatch
+carries the other eight fields, and dropping any of *those* is the omission this spec forbids. Keep
+the role's hand-back **verbatim**: a dispatch is itself a fresh context, and the thread can compose
+it only while it still holds the facts. A field the thread can no longer reconstruct is re-asked of
+the role, never invented.
 
 1. **Record the artifact** — named in the dispatch, or written to the agreed location.
 2. **Set status:** `done` (ready for the next stage) or `blocked` (open questions from `grilling` remain — do **not** hand off).
@@ -102,7 +106,7 @@ can no longer reconstruct is re-asked of the role, never invented.
 
 ```
 from: <stage>          to: <stage>
-recorded: <date + time + timezone, read off the machine clock — see Rules>
+recorded: <date + time + timezone, read off the machine clock — see Rules>   # written record only
 status: done | blocked
 artifact: <path or link>
 slice: <which vertical slice this is> (blocked-by: <slices> | none)
