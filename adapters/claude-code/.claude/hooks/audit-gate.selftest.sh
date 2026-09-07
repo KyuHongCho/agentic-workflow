@@ -2,10 +2,13 @@
 # Self-test for audit-gate.sh + audit-track.sh — the audit-debt gate. Like the other two: a
 # missing or broken hook exits 127, which does NOT block, so this gate fails OPEN with no warning.
 #
-# Four things are pinned: the ${CLAUDE_PROJECT_DIR}/.gate parse both hooks stand down on; that a
+# Six things are pinned: the ${CLAUDE_PROJECT_DIR}/.gate parse both hooks stand down on; that a
 # subagent's report is never read as control, however it quotes the phrase; that suppression stays
-# inside the role branch, so an auditor can always clear the debt it discharged; and the ledger's
-# CONTENTS. The first two fail in silence; the third loudly but wrongly — the debt sticks.
+# inside the role branch, so an auditor can always clear the debt it discharged; the ledger's
+# CONTENTS, including the UTC stamp each entry promises; the agent_id keying — one OPEN entry per
+# subagent, still clearable now that an entry carries metadata; and bin/audit-clear, the only
+# sanctioned way to retire a debt WITHOUT an audit, which is enforcement surface like the hooks.
+# The first two fail in silence; the third loudly but wrongly — the debt sticks.
 #
 #   bash audit-gate.selftest.sh
 #
@@ -13,10 +16,14 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGATE="$DIR/audit-gate.sh"
 ATRACK="$DIR/audit-track.sh"
+# Resolve bin/ PHYSICALLY. In an installed project .claude/hooks is a symlink, and bash's logical
+# pwd would make "$DIR/../../bin" the project root's bin — which the install never creates.
+ACLEAR="$(cd -P "$DIR/../.." 2>/dev/null && pwd)/bin/audit-clear"
 
 for f in "$AGATE" "$ATRACK"; do
   [ -f "$f" ] || { echo "FAIL: $f does not exist. The gate is not installed (or the symlink is broken)."; exit 1; }
 done
+[ -f "$ACLEAR" ] || { echo "FAIL: $ACLEAR does not exist. The human has no way to clear a stale entry."; exit 1; }
 
 fails=0
 
@@ -71,8 +78,72 @@ print(json.dumps(d))' "$3" "$4" "${7:-}" \
     | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
   # A MISSING ledger is not an EMPTY one: reading both as "[]" lets a hook that deleted the file
   # satisfy an "[]" expectation. Distinguish them — and don't leak the redirect's error either.
-  if [ -f "$D/.audit-pending" ]; then got="[$(tr '\n' ' ' < "$D/.audit-pending" | sed 's/ *$//')]"
+  if [ -f "$D/.audit-pending" ]; then got="[$(cut -f1 < "$D/.audit-pending" | tr '\n' ' ' | sed 's/ *$//')]"
   else got='[NOFILE]'; fi
+  rm -rf "$D"
+  if [ "$got" = "$2" ]; then printf '  ok    %-50s -> %s\n' "$1" "$got"
+  else printf '  FAIL  %-50s -> %s (expected %s)\n' "$1" "$got" "$2"; fails=$((fails+1)); fi
+}
+
+# Ledger after a SEQUENCE of hand-backs that carry an agent_id — the field the one-entry-per-subagent
+# rule keys on. Neither track() nor ledger() ever sends one, so neither can tell a resumed role
+# (one artifact, two hand-backs) from two slices, and neither exercises clearing a metadata-bearing
+# entry: matching the whole line instead of field 1 leaves that debt permanently unclearable.
+# $1 label | $2 expected ledger (field 1 of each line) | $3 starting ledger | $4.. 'agent_type:agent_id'
+ledger_ids () {
+  label="$1"; want="$2"; start="$3"; shift 3
+  D=$(mktemp -d); printf 'status: done\n' > "$D/.gate"; printf '%b' "$start" > "$D/.audit-pending"
+  for spec in "$@"; do
+    python3 -c 'import json,sys; print(json.dumps({"agent_type":sys.argv[1],"agent_id":sys.argv[2]}))' \
+      "${spec%%:*}" "${spec#*:}" | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+  done
+  if [ -f "$D/.audit-pending" ]; then got="[$(cut -f1 < "$D/.audit-pending" | tr '\n' ' ' | sed 's/ *$//')]"
+  else got='[NOFILE]'; fi
+  rm -rf "$D"
+  if [ "$got" = "$want" ]; then printf '  ok    %-50s -> %s\n' "$label" "$got"
+  else printf '  FAIL  %-50s -> %s (expected %s)\n' "$label" "$got" "$want"; fails=$((fails+1)); fi
+}
+
+# audit-gate.sh's MESSAGE, not just its rc. The per-entry lines come from a `read` loop, which drops
+# a final line with no trailing newline unless the loop guards for it — a debt silently never named.
+# $1 label | $2 expected number of '  - dispatch' lines | $3 ledger contents (printf %b, verbatim)
+gate_lines () {
+  D=$(mktemp -d); printf 'status: done\n' > "$D/.gate"; printf '%b' "$3" > "$D/.audit-pending"
+  msg=$(printf '{}' | CLAUDE_PROJECT_DIR="$D" bash "$AGATE" 2>&1 >/dev/null)
+  rm -rf "$D"
+  got=$(printf '%s\n' "$msg" | awk '/^  - dispatch/{n++} END{print n+0}')
+  if [ "$got" = "$2" ]; then printf '  ok    %-50s -> %s\n' "$1" "$got"
+  else printf '  FAIL  %-50s -> %s (expected %s)\n' "$1" "$got" "$2"; fails=$((fails+1)); fi
+}
+
+# bin/audit-clear — the ONLY sanctioned way to retire a debt without an audit, so it is enforcement
+# surface and pinned like the hooks. Checks the rc, the ledger LEFT BEHIND, that no .tmp.$$ survives,
+# and whether the file changed at all: a refused drop must leave it byte-identical, not merely
+# same-looking. $1 label | $2 expected 'rc=N|[fields 1,2]|tmp=N|file=same|changed'
+# | $3 starting ledger | $4.. arguments to audit-clear (none = the listing path)
+aclear () {
+  label="$1"; want="$2"; start="$3"; shift 3
+  D=$(mktemp -d); printf '%b' "$start" > "$D/.audit-pending"
+  before=$(cksum < "$D/.audit-pending")
+  CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" "$@" >/dev/null 2>&1; rc=$?
+  after=$(cksum < "$D/.audit-pending")
+  left=$(cut -f1,2 < "$D/.audit-pending" | tr '\t' ':' | tr '\n' ' ' | sed 's/ *$//')
+  strays=$(find "$D" -name '.audit-pending.tmp.*' | wc -l | tr -d ' ')
+  [ "$before" = "$after" ] && ch=same || ch=changed
+  got="rc=$rc|[$left]|tmp=$strays|file=$ch"
+  rm -rf "$D"
+  if [ "$got" = "$want" ]; then printf '  ok    %-50s -> %s\n' "$label" "$got"
+  else printf '  FAIL  %-50s -> %s (expected %s)\n' "$label" "$got" "$want"; fails=$((fails+1)); fi
+}
+
+# The recorded UTC stamp. Every case above reads field 1 or a hand-written ledger, so emitting an
+# empty or malformed field 3 passes them all — while CLAUDE.md promises each entry names its time.
+# Spelled out digit by digit: awk interval expressions {4} are not portable.
+stamp () {
+  D=$(mktemp -d); printf 'status: done\n' > "$D/.gate"; : > "$D/.audit-pending"
+  python3 -c 'import json;print(json.dumps({"agent_type":"build","agent_id":"A1"}))' \
+    | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+  got=$(awk -F'\t' 'NR==1{print ($3 ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z$/) ? "ISO8601Z" : "BAD[" $3 "]"}' "$D/.audit-pending")
   rm -rf "$D"
   if [ "$got" = "$2" ]; then printf '  ok    %-50s -> %s\n' "$1" "$got"
   else printf '  FAIL  %-50s -> %s (expected %s)\n' "$1" "$got" "$2"; fails=$((fails+1)); fi
@@ -122,4 +193,34 @@ ledger "one auditor clears ONE debt, not both"    "[build]"       build-audit "$
 ledger "no .gate yet (fresh install) -> debt"     "[build]"       build       "$R_INLINE" '' NOGATE
 ledger "nested agent_type is not the top-level"   "[]"            build-audit "$R_INLINE" 'build\n' 'status: done\n' build
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (19/19)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi
+# The phantom: before agent_id keying, a role that handed back, waited on the human and handed back
+# again recorded TWO debts for ONE artifact — the second unpayable, because no second artifact exists.
+ledger_ids "same subagent twice, no audit between -> ONE"   "[build]"       '' build:A1 build:A1
+# Load-bearing for audit-track.sh's clearing awk. Match the whole LINE instead of field 1 and this is
+# "[build]": the debt survives its own audit and the gate can never be satisfied again.
+ledger_ids "auditor clears a metadata-bearing entry"        "[]"            '' build:A1 build-audit:A9
+# Keying must not turn into memory: after a REVISE the entry was already cleared, so the same
+# subagent handing back again opens a FRESH debt.
+ledger_ids "audited, then hands back again -> owes again"   "[build]"       '' build:A1 build-audit:A9 build:A1
+# Two slices are two subagents and still owe two audits — what naive dedup-by-role would collapse.
+ledger_ids "two different subagents -> TWO entries"         "[build build]" '' build:A1 build:A2
+# A ledger written without a trailing newline (hand-edited, or a truncated write) must still name
+# every entry; an unguarded `read` loop drops the last one and the human is never told it is owed.
+gate_lines "last line, no trailing newline, still named"    2 'plan\tA1\t2026-01-01T00:00:00Z\nbuild\tA2\t2026-01-01T00:00:01Z'
+
+# CLAUDE.md promises every entry names the UTC time it was recorded; only this case can see it.
+stamp "the recorded stamp is a real UTC timestamp"  ISO8601Z
+
+# bin/audit-clear. The legacy case is the one that mattered: a pre-format entry has no agent_id, so
+# before it was matched by role name NO argument the human could type would clear it — and a leftover
+# from before the metadata is exactly the entry this whole change exists to let them retire.
+aclear "audit-clear: drops named id, keeps the other"  "rc=0|[build:A2]|tmp=0|file=changed" 'build\tA1\tT1\nbuild\tA2\tT2' A1
+aclear "audit-clear: unknown id -> rc=1, no mutation"  "rc=1|[build:A1]|tmp=0|file=same"    'build\tA1\tT1'                 nope
+aclear "audit-clear: legacy bare entry clears by role" "rc=0|[plan]|tmp=0|file=changed"     'build\nplan\n'                 build
+aclear "audit-clear: no argument lists, never mutates" "rc=0|[build:A1]|tmp=0|file=same"    'build\tA1\tT1'
+# An EMPTY argument is not "no argument": '$2==""' matches every legacy line, so without the
+# '[ -z "$1" ]' half of the guard `audit-clear ""` retires a real debt with rc=0 and a success
+# message. That is the hazard this file's header warns about, on the one path that can do it.
+aclear "audit-clear: empty arg lists, never drops"   "rc=0|[build plan]|tmp=0|file=same"  'build\nplan\n'  ""
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (30/30)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi

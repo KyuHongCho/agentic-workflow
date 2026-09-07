@@ -17,8 +17,9 @@ After **every** role subagent returns, dispatch its auditor on the same artifact
 
 **Granularity: one `build ↔ build-audit` loop per vertical slice**, not one per plan — see
 `$AGENTIC_WORKFLOW_HOME/core/shared/vertical-slices.md`. Dispatch `build` for one slice, audit it,
-then move to the next. The audit gate records one entry per role completion, so two slices owe two
-audits — but a resumed role adds an entry each time it hands back, without producing a new artifact.
+then move to the next. The audit gate records one **open entry per subagent**, so two slices are two
+subagents and still owe two audits — while a role that hands back more than once for the *same*
+artifact (it paused for the human, or you re-dispatched it) updates its entry instead of adding one.
 
 - On `REVISE`, hand the objection list back to the role subagent **verbatim** — never just "try again" —
   then re-audit, and the auditor must confirm each prior objection is resolved before looking for new ones.
@@ -82,15 +83,17 @@ still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/h
 
 The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
 and auditors could not run anyway (their `Bash`/`Edit` would be gated). Whether a role that self-blocks on
-grilling records a debt depends on `.gate` when its `SubagentStop` fires, and the ledger holds bare role names,
-so a leftover line cannot be attributed to the role that blocked — it may be another role's real, unaudited
-debt. Say so and ask the human to clear it; never edit `.audit-pending` yourself.
+grilling records a debt depends on `.gate` when its `SubagentStop` fires, so a leftover entry is still
+possible — but every entry now names its role, the `agent_id` that recorded it and the UTC time, so you can
+say *which* hand-back it came from and whether an artifact exists behind it. If none does, say so and ask
+the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`; never edit
+`.audit-pending` yourself.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (19/19)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (30/30)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
