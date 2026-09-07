@@ -8,7 +8,8 @@ a role or auditor hands its artifact back and never runs this protocol itself (�
 Two boundaries need it, and they lose different things:
 
 - **Stage → stage** — `plan` → `build` → `review`, inside one session. The artifact is on disk and
-  the context is still warm, so the record is a short pointer.
+  the context is still warm, so nothing more needs writing down: the dispatch to the next stage is
+  the handoff, and the pointer it carries can be short (§ *Stage handoff*).
 - **Session → session** — one context ends, a fresh one continues. `vertical-slices.md` makes this
   routine ("one slice per fresh context"), and it is the boundary where reasoning is actually lost:
   everything not written down is gone, and the next session cannot ask you what you meant.
