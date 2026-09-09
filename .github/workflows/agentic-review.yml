@@ -238,18 +238,50 @@ jobs:
       # `env.X` is null and every comment compares >= it -- the filter would silently pass
       # them all. [OUTDATED] marks a comment whose anchor has moved: `.line` goes null while
       # `.original_line` still points into a superseded diff.
+      #
+      # The endpoint also returns every *account's* comments, not just the reviewer's -- a human
+      # who leaves an inline comment during the window would otherwise be dumped to the auditor
+      # as though the reviewer had written it. The `review` job posts as `claude[bot]` (confirmed
+      # against this repo's own PRs: `gh api repos/<owner>/<repo>/pulls/<n>/comments --jq
+      # '.[].user.login'`), so the login predicate scopes the dump to that account. Unlike
+      # `GATE_STARTED_AT` below, there is no runtime guard that this login is still correct --
+      # if `claude-code-action`'s posting identity ever changes, every dump silently goes empty.
+      # The raw-vs-filtered count check at the bottom of this step exists for exactly that: it
+      # warns loudly instead of leaving a wrong login to fail silently on every run.
+      #
+      # The record separator is an HTML comment carrying THIS RUN's own `GATE_STARTED_AT`, not a
+      # bare `### ` or a fixed `<!-- FINDING ... -->`: both guideline files this workflow points
+      # the agents at literally contain `### ` at column 1 (e.g. `### Review — <PASS or CHANGES
+      # REQUESTED>`), and a finding that discusses -- or, as happened in this file's own review
+      # round, quotes -- a FIXED delimiter string collides with it the same way, inflating the
+      # count below. Binding the marker to `GATE_STARTED_AT` closes that: the value is generated
+      # by the `gate` job and never exposed to the `review` agent's prompt or tools, so no
+      # comment the `review` job posts (all of them, before this step runs) can have quoted the
+      # exact marker this run will use, even one explaining or illustrating the format.
       - name: Dump the review's inline findings for the auditor
         env:
           GH_TOKEN: ${{ github.token }}
           GATE_STARTED_AT: ${{ needs.gate.outputs.started_at }}
         run: |
           : "${GATE_STARTED_AT:?gate emitted no started_at -- refusing to dump unscoped}"
+          RAW_COUNT=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr }}/comments" \
+            --paginate \
+            --jq '[.[] | select(.in_reply_to_id == null and .created_at >= env.GATE_STARTED_AT)] | length')
           gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr }}/comments" \
             --paginate \
-            --jq '.[] | select(.in_reply_to_id == null and .created_at >= env.GATE_STARTED_AT)
-                  | "### \(.path):\(.line // .original_line // "?")\(if .line == null and .original_line != null then "  [OUTDATED]" else "" end)  (r\(.id))\n\n\(.body)\n"' \
+            --jq '.[] | select(.user.login == "claude[bot]" and .in_reply_to_id == null and .created_at >= env.GATE_STARTED_AT)
+                  | "<!-- FINDING \(env.GATE_STARTED_AT) \(.path):\(.line // .original_line // "?")\(if .line == null and .original_line != null then "  [OUTDATED]" else "" end)  (r\(.id)) -->\n\n\(.body)\n"' \
             > review-inline-comments.md
-          echo "inline findings dumped: $(grep -c '^### ' review-inline-comments.md)"
+          # `|| true` is load-bearing: `grep -c` exits 1 on zero matches (a routine outcome here
+          # -- an empty review, or the wrong-login case the warning below exists to catch), and
+          # this file's steps run under GitHub's no-`shell:`-key default of `bash -e {0}`. A bare
+          # `VAR=$(cmd)` assignment propagates the substitution's exit status, so without `|| true`
+          # a review with zero inline comments would kill this step before the warning ever runs.
+          FILTERED_COUNT=$(grep -c "^<!-- FINDING ${GATE_STARTED_AT} " review-inline-comments.md || true)
+          echo "inline findings dumped: $FILTERED_COUNT (raw top-level comments in window: $RAW_COUNT)"
+          if [ "$RAW_COUNT" -gt 0 ] && [ "$FILTERED_COUNT" -eq 0 ]; then
+            echo "::warning::review-audit dump is empty but $RAW_COUNT top-level comment(s) exist in this run's window -- the claude[bot] login predicate may no longer match the review job's posting identity"
+          fi
       - id: agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -267,7 +299,9 @@ jobs:
 
             The review's INLINE findings are not in `gh pr view` output. Read them at:
               review-inline-comments.md
-            That file is half the review; the summary comment is the other half. It holds
+            Do not open that file until Pass 1 is written down -- core/auditors/review-audit.md
+            and agentic-review-audit-guideline.md both require the blind pass to come first.
+            Once it is: that file is half the review; the summary comment is the other half. It holds
             this run's findings only — check the count against the summary's
             `**Findings** — <N> inline, <M> here` line. An entry marked [OUTDATED] carries a
             line number from a superseded diff; re-locate it before citing. Never assert the
