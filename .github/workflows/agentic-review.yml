@@ -263,10 +263,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GATE_STARTED_AT: ${{ needs.gate.outputs.started_at }}
         run: |
+          set -euo pipefail
           : "${GATE_STARTED_AT:?gate emitted no started_at -- refusing to dump unscoped}"
+          # --paginate applies --jq to each page separately, so an aggregating filter like
+          # `[...] | length` would emit one integer per page (e.g. "30\n4") instead of a single
+          # total. Emit one line per matching item instead and count lines outside jq, so
+          # per-page splitting can't corrupt the count. Scoped to `.user.type == "Bot"` (not the
+          # `claude[bot]` login the dump below checks) so this stays a population of ALL bot
+          # activity -- a renamed posting identity still trips the warning below, but a human
+          # leaving an unrelated top-level comment in the window does not.
           RAW_COUNT=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr }}/comments" \
             --paginate \
-            --jq '[.[] | select(.in_reply_to_id == null and .created_at >= env.GATE_STARTED_AT)] | length')
+            --jq '.[] | select(.in_reply_to_id == null and .created_at >= env.GATE_STARTED_AT and .user.type == "Bot") | .id' \
+            | wc -l)
           gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr }}/comments" \
             --paginate \
             --jq '.[] | select(.user.login == "claude[bot]" and .in_reply_to_id == null and .created_at >= env.GATE_STARTED_AT)
