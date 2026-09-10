@@ -78,4 +78,6 @@ Every change here — including my own — goes through a pull request with gree
 protected with `enforce_admins`, so direct pushes are rejected even for me.
 
 ## Status
-Scaffold only (Module 0). Built step-by-step.
+Working core, built module by module. The portable `core/` instructions and the Claude Code
+adapter are in use by two other repositories; later roadmap modules (evals and benchmarks,
+context engineering) are still unbuilt.
