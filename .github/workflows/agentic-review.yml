@@ -255,9 +255,11 @@ jobs:
       # REQUESTED>`), and a finding that discusses -- or, as happened in this file's own review
       # round, quotes -- a FIXED delimiter string collides with it the same way, inflating the
       # count below. Binding the marker to `GATE_STARTED_AT` closes that: the value is generated
-      # by the `gate` job and never exposed to the `review` agent's prompt or tools, so no
-      # comment the `review` job posts (all of them, before this step runs) can have quoted the
-      # exact marker this run will use, even one explaining or illustrating the format.
+      # by the `gate` job and never exposed to the `review` agent's prompt or tools -- it has no
+      # `date`, no `gh api`, and no other way to learn or predict this run's value, so it cannot
+      # DELIBERATELY quote the exact marker (verified: `needs.gate.outputs.started_at` appears
+      # nowhere in the `review` job). The residual is a coincidental exact-second string match,
+      # which the warning above does not detect -- accepted as out of scope for this fix.
       - name: Dump the review's inline findings for the auditor
         env:
           GH_TOKEN: ${{ github.token }}
