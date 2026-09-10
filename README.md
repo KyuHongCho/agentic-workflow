@@ -79,5 +79,5 @@ protected with `enforce_admins`, so direct pushes are rejected even for me.
 
 ## Status
 Working core, built module by module. The portable `core/` instructions and the Claude Code
-adapter are in use by two other repositories; later roadmap modules (evals and benchmarks,
+adapter are in use across two other projects; later roadmap modules (evals and benchmarks,
 context engineering) are still unbuilt.
