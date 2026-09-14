@@ -31,7 +31,8 @@
   working tree, and mark anything you could not reproduce as **unverified**. Do not try to create a
   test, re-fetch the diff, or chase an external document: each blocked attempt costs a turn, and a
   run that exhausts its turns reports nothing at all.
-- **If the diff touches comments, docstrings, or documentation (`README.md`, `docs/*.md`), check
+- **If the diff touches comments, docstrings, or documentation (commonly `README.md`/`docs/*.md`,
+  but check the repo's actual layout — see `../checklists/doc-and-comment-hygiene.md` for why), check
   `../checklists/doc-and-comment-hygiene.md`** — Tier 1 is plain `grep`, runnable with the same read-only
   tools as everything else in this role.
 - **When acceptance criteria or intended behaviour are unclear → invoke `../shared/grilling.md`.**
