@@ -38,6 +38,9 @@ The **code changes + evidence** they work (test output, run output).
   covers the claim, create a throwaway test and/or temporarily amend the code, run it, and observe.
   **Then delete every throwaway and revert every amendment.** Report what you ran, what you created
   or amended and removed, and the final `git status --porcelain`.
+- **If this slice touches comments, docstrings, or documentation (`README.md`, `docs/*.md`),
+  self-check against `../checklists/doc-and-comment-hygiene.md`'s Tier 1 before handing back** — a hit you
+  cannot justify is a bug in your own work.
 - **When a step is ambiguous, a decision is unspecified, or reality contradicts the plan → invoke
   `../shared/grilling.md`.** Don't guess. This is the same gate as step 0, later: step 0 is the
   deliberate up-front pass over the whole plan document; this bullet is for what only surfaces once

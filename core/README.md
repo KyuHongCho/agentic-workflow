@@ -5,6 +5,8 @@ syntax. Adapters point their tool at these files.
 
 - `roles/` — `plan.md`, `build.md`, `review.md` (what each role does + the artifact it produces)
 - `auditors/` — `plan-audit.md`, `build-audit.md`, `review-audit.md` (adversarial criteria)
+- `checklists/` — content-quality standards for a given artifact type (e.g. `doc-and-comment-hygiene.md`),
+  referenced by roles/auditors that produce or judge that kind of content
 - `shared/` — cross-cutting skills every role & auditor invokes:
   - `grilling.md` (mandatory HITL gate)
   - `handoff.md` (passing work across a boundary — stage → stage, and session → session)

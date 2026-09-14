@@ -34,6 +34,11 @@ coordinating thread — it asks and it writes.**
   every amendment.** Where writing to the tree is not available, read the real source instead and mark
   what remains unverified — never infer it. Report what you ran, what you created or amended and
   removed, and the final `git status --porcelain`.
+- **The plan document is read the same way a comment is — check it against
+  `../checklists/doc-and-comment-hygiene.md`'s Tier 3 (judgment-only) items before handing back**: no
+  stale internal reference, no unverified "measured"/"verified" claim, no unnecessary verbosity.
+  Tier 1's mechanical greps target code comments and don't directly apply here, but the same
+  failure modes can.
 - **Cut the work per `../shared/vertical-slices.md`,** and **state the breakdown in the plan document for confirmation** — granularity, blocking edges, what to merge or split — then hand back. The confirmation is asked by the **coordinating thread**, after `plan-audit` returns `PASS`.
 - **When anything is unclear → invoke `../shared/grilling.md`.** Never fabricate requirements.
 - **When done → the plan document goes to `../auditors/plan-audit.md` via `../shared/audit-loop.md`. On `PASS` the plan stage ends** — the coordinating thread records the artifact per `../shared/handoff.md` and asks the human what happens next. (If open questions remain the stage is `blocked`: do not hand off at all.)
