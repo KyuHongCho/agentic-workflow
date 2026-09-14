@@ -20,38 +20,49 @@ Run against the target repo's tracked source files, using its own language exten
 general Bash or Python interpreter). Each command needs a path/include argument to actually search
 the repo — e.g. `grep -rnE '\bplan-[0-9]+\b' --include='*.py' --include='*.sh' --include='*.yml' .`
 — the bare pattern-only form in the table below reads stdin, not the repository, if copied as-is.
-"Changed lines only" has no automated mechanism under a grep-only grant (no pipe to `git diff` is
-available) — run the whole-repo command, then cross-reference hits against your diff by eye.
-(Verified against this environment's `ugrep`-based `grep`; exact hit counts, not the underlying
-`|`-vs-`\|` regex distinction, may vary slightly against the actual CI runner's grep — re-confirm
-in place rather than assume.)
+"Changed lines only" IS achievable: `Bash(git diff:*)` and `Bash(grep:*)` are both granted
+separately, and this harness checks each pipeline segment against the allowlist independently —
+verified live in CI by piping `git diff <base> <head> | grep -nE 'pattern'`, which succeeded, while
+a pipeline containing an ungranted command (e.g. `sed`) was refused naming specifically that
+segment, not the pipe itself. Example: `git diff <base> <head> | grep -nE '\bplan-[0-9]+\b'` —
+filter by pathspec only if you already know which file types changed (e.g. `-- '*.md'`); the bare
+form works regardless of what changed. (The earlier claim that no such pipe was available was an
+inference, not a test, and was wrong — corrected here after a live CI run actually exercised it.
+This conclusion rests on two live CI observations, not on reading the harness's own permission-
+parsing source code, which is outside this repository.)
 
 | Check | Command | Why | Verified against |
 |---|---|---|---|
-| Internal planning-doc reference | `grep -nE '\bplan-[0-9]+\b'` | Points outside the repo. | 4/4 known hits in `crop-cms-backend@0d69c51` (that repo's pre-cleanup main — its own PR #15, merged 2026-09-14, has since cleaned this up, so re-running these greps against its *current* main now returns 0, not these numbers) reproduced by two independent tools + plain grep. |
-| Planning-unit jargon | `grep -nE '\bSlice [0-9]+\b'` (capital S only — lowercase "a top-k slice" is ordinary vocabulary) | Same. | Adversarial case verified in the sibling `crop-cms-backend@0d69c51` project's review-prompt (same pin as above; NOT this repo — `agentic-workflow` has no numbered-slice example anywhere, confirmed via `grep -rn 'Slice [0-9]' .` (returns only this line's own citation)): its `"Slice 1, 2, 3"` example lives in a YAML block-scalar, not a `#` comment, so a comment-scoped check correctly skips it while a whole-file grep does not — which is why scoping matters, even though this repo has no live example of that specific case. |
-| PR number | `grep -nE '\bPR ?#[0-9]+\b'` | Process narration, not a reason. | 2/2 known hits (`crop-cms-backend@0d69c51`, same pin as above) reproduced. |
-| Em dash in a comment/docstring | `grep -n '—'` | Check the target repo's own convention first — see note below (this check must not be applied blind). **Does not apply to `.md` files by default — see note below**. | 22/22 hits (`crop-cms-backend@0d69c51`, same pin as above) reproduced by two independent methods, after a first attempt under-counted this to 2 and the error was traced and fixed. |
+| Internal planning-doc reference | `grep -nE '\bplan-[0-9]+\b'` | Points outside the repo. | 4/4 known hits in `crop-cms-backend@0d69c51` (that repo's pre-cleanup main — its own comment-hygiene cleanup, merged as commit `59f01ab` on 2026-09-14, has since cleaned this up, so re-running these greps against its *current* main now returns 0, not these numbers) reproduced by two independent tools + plain grep. |
+| Planning-unit jargon | `grep -nE '\bSlice [0-9]+\b'` (capital S only — lowercase "a top-k slice" is ordinary vocabulary) | Same. | Adversarial case verified in the sibling `crop-cms-backend@0d69c51` project's review-prompt (pinned, see above; NOT this repo — `agentic-workflow` has no numbered-slice example anywhere, confirmed via `grep -rn 'Slice [0-9]' .` (returns only this line's own citation)): its `"Slice 1, 2, 3"` example lives in a YAML block-scalar, not a `#` comment, so a comment-scoped check correctly skips it while a whole-file grep does not — which is why scoping matters, even though this repo has no live example of that specific case. |
+| PR number | `grep -nE '\bPR ?#[0-9]+\b'` | Process narration, not a reason. | 2/2 known hits (pinned, see above) reproduced. |
+| Em dash in a comment/docstring | `grep -n '—'` | Check the target repo's own convention first — see note below (this check must not be applied blind). **Does not apply to `.md` files by default — see note below**. | 22/22 hits (pinned, see above) reproduced by two independent methods, after a first attempt under-counted this to 2 and the error was traced and fixed. |
 | TODO/FIXME | `grep -n -e TODO -e FIXME` | Take it to a tracked issue. | 0/0, no false positives possible on an absent pattern. |
 | Commented-out code | `grep -nE -e '^\s*#\s*import ' -e '^\s*#\s*from \S+ import' -e '^\s*#\s*def \w+\(' -e '^\s*#\s*class \w+[:(]' -e '^\s*#\s*return[ (]'` | Dead code as a comment is never a comment. | 0/0 in the source case; kept as a standing check. |
+
+**Every `crop-cms-backend` citation in this table is pinned to `crop-cms-backend@0d69c51`** (that
+repo's pre-cleanup main — see the "Internal planning-doc reference" row above for the full context
+on why it's pinned, not left as a bare `main` reference).
 
 **"clause N"** (`grep -nE '\bclause [0-9]+\b'`) is **flag-only**: might be defined nearby. Object
 only if `grep -rn` for the term elsewhere in the tracked repo also comes up empty.
 
 **Em dash in `README.md`/`docs/*.md` is not checked by default.** Documentation prose commonly has
 its own em-dash convention, distinct from the ASCII-`--` convention above for code comments —
-verified: this repo's own `README.md` (13 em dashes) and `core/README.md` (9 em dashes), and
-`crop-cms-backend@0d69c51`'s own `README.md` (14 em dashes) and `docs/design-notes.md` (37 em
-dashes) (same pin as above), all use em dash
+verified: this repo's own `README.md` (16 em-dash characters across 13 lines that contain at least
+one — `grep -c` counts matching lines, `grep -o PATTERN file | wc -l` counts true occurrences; use
+the latter when precision matters) and `core/README.md` (9, both methods agree there), and
+`crop-cms-backend@0d69c51`'s own `README.md` (16 em-dash occurrences across 14 lines) and
+`docs/design-notes.md` (39 em-dash occurrences across 37 lines) (pinned, see above), all use em dash
 as the dominant prose style, with only one incidental ASCII `--` in `design-notes.md` against
-its 37 em dashes — a single outlier, not a competing convention. Before applying this
+its 39 em dashes — a single outlier, not a competing convention. Before applying this
 check to a target repo's `.md` files, check that repo's own documented or observed doc convention
 first; don't assume it must match the code-comment convention. Every other Tier 1 check above, and
 all of Tier 2 and Tier 3 below, applies to `.md` prose exactly as it does to code comments — only
 this em-dash check is carved out for docs.
 
 **The same caution applies to code comments, not only `.md` prose.** Verified: `crop-cms-backend`'s
-(same pin as above) code comments use ASCII `--` (this checklist's origin). This repo's own code comments
+(pinned, see above) code comments use ASCII `--` (this checklist's origin). This repo's own code comments
 (`agentic-workflow`) use the *opposite* convention — em dash outnumbers ASCII `--` 47:13 in its
 `.sh`/`.yml` files (`grep -rn '^\s*#.*—' --include='*.sh' --include='*.yml' .` vs the same pattern
 with ` -- ` in place of `—`). Applying this check to a repo without first confirming its real
