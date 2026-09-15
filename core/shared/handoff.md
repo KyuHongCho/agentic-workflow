@@ -19,7 +19,7 @@ Two boundaries need it, and they lose different things:
   produced **and** no open `grilling` questions remain. For a stage → stage **handoff record**,
   inside a live session the **dispatch to the next stage is the handoff** and no record file is
   written — see § *Stage handoff*. This governs the record only: a **plan document** is still saved
-  when the plan stage ends, per `../roles/plan.md:39` and § *Where to write it*.
+  when the plan stage ends, per `../roles/plan.md`'s "When done" bullet and § *Where to write it*.
 - **Session:** before a context ends with work unfinished — a slice completed, a budget exhausted, or
   the human stopping for the day.
 
