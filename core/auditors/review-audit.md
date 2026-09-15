@@ -32,6 +32,8 @@ as **unverified**; a run that exhausts its turns posts no audit at all.
 - **Slice integrity:** Did the review confirm each slice is demoable end-to-end per `../shared/vertical-slices.md`, and did it flag scope creep and missing/partial criteria? A review that passed a horizontally-sliced change is a false `PASS`.
 - **Evidence:** Is each finding backed by `file:line` + a concrete reason, not vibes? **Is the cited line quoted verbatim?** An unquoted citation is unverified.
 - **Calibration:** Too lenient (waved through a real issue) or too harsh (invented a standard not agreed)?
+- **Comment hygiene:** Did `review` actually check `../checklists/doc-and-comment-hygiene.md` against
+  every changed comment, docstring, or documentation file, or only the ones it happened to notice?
 - **Intent:** Do any findings rest on unstated intent rather than the agreed criteria?
 
 ## Verdict

@@ -24,6 +24,9 @@ Use `../shared/verify.md` for the method (evidence over reasoning; verify claims
 - **Risks:** Are the real risks named and addressed? What's the biggest thing that could go wrong that the plan ignores?
 - **Simplicity:** Is a simpler approach available that still meets the goal?
 - **Open questions:** Genuinely resolved, or deferred/assumed?
+- **Plan-document hygiene:** Per `../checklists/doc-and-comment-hygiene.md`'s Tier 3 — does the plan
+  document itself avoid the same defects (stale references, unverified epistemic claims, bloat)
+  it exists to prevent in the code that follows it?
 
 ## Verdict
 `PASS` (clear, minimal, assumption-free) or `REVISE` + specific, fixable objections (each pointing at the weak part).
