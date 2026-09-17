@@ -3,6 +3,12 @@
 The **mandatory** human-in-the-loop gate that every role and every auditor invokes whenever something
 is unclear. Tool-agnostic.
 
+> Adapted from [Matt Pocock's `grilling` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md).
+> This version diverges in two ways: it grills **one question at a time** rather than in
+> batched rounds — in this loop the human is mid-task, and a batch gets skimmed — and it is wired in as a
+> blocking gate, self-triggered by any role or auditor, with the stage held at `blocked` until every
+> question is resolved.
+
 ## Trigger
 This gate is **mandatory and self-triggered**: any role or auditor MUST invoke grilling the moment it hits an unresolved
 ambiguity — an unclear goal, scope, acceptance criterion, unspecified decision, or unstated intent.

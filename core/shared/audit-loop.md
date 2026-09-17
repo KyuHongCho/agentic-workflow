@@ -3,6 +3,10 @@
 The loop **mechanics** every `role ↔ auditor` pair uses. Parameterized — it injects the matching
 auditor's tailored criteria; it holds **no** role-specific checks itself. Tool-agnostic.
 
+> The **evaluator-optimizer** name follows Anthropic's [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents#workflow-evaluator-optimizer):
+> one call generates, another evaluates in a loop. This shared skill elaborates that into a structured
+> pass/revise protocol — objection lists, grounded verification, and escalation to the human.
+
 ## Parameters
 - `role` — the producing role (`plan` | `build` | `review`)
 - `auditor` — the matching criteria at `../auditors/<role>-audit.md`
