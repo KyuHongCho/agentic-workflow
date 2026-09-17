@@ -84,7 +84,7 @@ benchmarks, context engineering) are still unbuilt.
 
 ## Acknowledgements
 
-The `grilling` shared skill is adapted from [Matt Pocock's skills repo](https://github.com/mattpocock/skills) (MIT).
+The `grilling` shared skill is adapted from [Matt Pocock's skills repo](https://github.com/mattpocock/skills).
 How this version differs is noted at the top of `core/shared/grilling.md`.
 
 The **evaluator-optimizer** loop is named in Anthropic's [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents#workflow-evaluator-optimizer);
