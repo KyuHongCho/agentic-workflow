@@ -9,7 +9,7 @@
 ## Process
 1. Establish the goal and the **definition of done**.
 2. Survey the relevant code/context.
-3. Cut the work into **vertical slices** per `../shared/vertical-slices.md`, each declaring its blocking edges. Sequence any prefactoring first — "make the change easy, then make the easy change". Note risks, unknowns, and files to touch.
+3. Cut the work into **vertical slices** per `../shared/vertical-slices.md`, each declaring its blocking edges. Sequence any prefactoring first — "make the change easy, then make the easy change" (paraphrasing Kent Beck). Note risks, unknowns, and files to touch.
 4. Choose the **simplest** approach that meets the goal.
 
 ## Produces
