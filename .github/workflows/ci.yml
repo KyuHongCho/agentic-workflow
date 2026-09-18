@@ -44,5 +44,8 @@ jobs:
         # agent_type) that asserts the ledger's contents, so a wrong NAME
         # cannot hide behind a plausible count. Most of these skip the audit
         # loop silently; one jams a discharged debt in the ledger — so it
-        # needs its own proof that it still trips.
+        # needs its own proof that it still trips. The remaining cases: the agent_id keying that
+        # tells a resumed role from a second slice, the gate message still naming an entry whose
+        # ledger line has no trailing newline, and the UTC stamp each entry promises; and
+        # bin/audit-clear, the only sanctioned way to retire a debt without an audit.
         run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh
