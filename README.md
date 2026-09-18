@@ -87,5 +87,9 @@ benchmarks, context engineering) are still unbuilt.
 The `grilling` shared skill is adapted from [Matt Pocock's skills repo](https://github.com/mattpocock/skills).
 How this version differs is noted at the top of `core/shared/grilling.md`.
 
+The slice rules in `vertical-slices.md` are copied, with the wide-refactor sequence adapted, from
+[Matt Pocock's `to-tickets` skill](https://github.com/mattpocock/skills/blob/main/skills/engineering/to-tickets/SKILL.md)
+(MIT, © 2026 Matt Pocock). How this version differs is noted at the top of that file.
+
 The **evaluator-optimizer** loop is named in Anthropic's [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents#workflow-evaluator-optimizer);
 how it's elaborated here is noted at the top of `core/shared/audit-loop.md`.

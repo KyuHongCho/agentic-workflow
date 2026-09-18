@@ -3,6 +3,13 @@
 How work is **cut** — the unit every role plans, builds, reviews, and audits against.
 Tool-agnostic. Invoked by every role and auditor, like `grilling.md` and `verify.md`.
 
+> The rules block below is copied, with a single punctuation change, from
+> [Matt Pocock's `to-tickets` skill](https://github.com/mattpocock/skills/blob/main/skills/engineering/to-tickets/SKILL.md)
+> (MIT, © 2026 Matt Pocock); the wide-refactor sequence further down is adapted from the same source,
+> condensed into an expand → migrate → contract sequence. His skill decomposes a plan into tracker
+> tickets in one pass; this file lifts these rules out of that workflow into a standing constraint
+> every role and auditor checks against, with no tracker involved.
+
 ## The rule
 
 <vertical-slice-rules>

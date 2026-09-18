@@ -1,7 +1,7 @@
 ## What this changes
 
 <!-- The end-to-end behaviour this makes work, from the user's perspective —
-     not a layer-by-layer implementation list. -->
+     never a layer-by-layer implementation list. -->
 
 ## Why
 
