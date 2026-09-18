@@ -15,7 +15,8 @@ Use the repo's own `.github/pull_request_template.md` when one exists. Otherwise
 sections below, which is what that template specifies:
 
     ## What this changes
-    What a user can now do that they could not before — not a list of the layers you touched. Show real before/after output where the change is user-visible.
+    The end-to-end behaviour this makes work, from the user's perspective — never a layer-by-layer
+    implementation list. Show real before/after output where the change is user-visible.
 
     ## Why
     The decision, and the alternative you rejected.
