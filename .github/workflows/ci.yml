@@ -37,7 +37,7 @@ jobs:
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
 
       - name: audit-gate self-test
-        # 19 cases: the .gate parse both hooks share, a subagent's own report
+        # 30 cases: the .gate parse both hooks share, a subagent's own report
         # never acting as control, where the suppression branch sits, and a
         # fourth set driving inputs the others never reach (a non-build role,
         # its auditor, a two-entry ledger, an absent .gate, a nested
