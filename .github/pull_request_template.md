@@ -1,7 +1,6 @@
 ## What this changes
 
-<!-- The end-to-end behaviour this makes work, from the user's perspective —
-     not a layer-by-layer implementation list. -->
+<!-- What a user can now do that they could not before — not a list of the layers you touched. -->
 
 ## Why
 
