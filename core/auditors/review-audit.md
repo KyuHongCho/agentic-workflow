@@ -38,6 +38,13 @@ as **unverified**; a run that exhausts its turns posts no audit at all.
 
 ## Verdict
 `PASS` (complete, evidence-backed, well-calibrated) or `REVISE` + specific objections.
+
+**Report it in the shape of the audit comment** — `### Review-audit — <PASS or REVISE>`, the verdict
+table with one row per review finding, **Missed by the review**, and the `Re-verification` block, as in
+`agentic-review-audit-guideline.md` at the root of this system. On `PASS` the coordinating thread saves
+it beside the review as the review record (`../shared/handoff.md` § *Review record*). Where Pass 1
+could not be blind — you were handed the review before judging the change — say so under **Blind
+pass**; never report an agreement rate you did not measure.
 **Every objection must cite concrete evidence** (the `file:line` you re-checked, or the criterion left uncovered) — never a vibe.
 
 ## When criteria are unclear

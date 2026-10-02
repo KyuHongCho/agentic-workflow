@@ -76,6 +76,17 @@ and the filename.
 Handing off passes the work along; it does not publish it. Committing, pushing and the PR remain the
 separate consent sequence in *You (the main thread) own the consent sequence*, below.
 
+## After `review-audit` PASS: the review record
+Unlike a build hand-back, the review stage **always** leaves a file. Once `review-audit` returns
+`PASS` — whatever the review's own verdict — run the `handoff` skill for a **review record**
+(`$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md` § *Review record*): the review's summary comment and
+the audit's comment, verbatim and final round only, in the shapes of `agentic-review-guideline.md` and
+`agentic-review-audit-guideline.md`. Ask with `AskUserQuestion`, **one prompt at a time**: first the
+**location** (`documents/<project-name>/` recommended), then the **PR number** (look it up with `gh pr
+list --head <branch> --state all`; `pending` when no PR exists). The name is
+`review-<project-name>-pr-<number>-<branch>.md`, with `/` in the branch turned into `-`. If the loop
+escalated without a `PASS`, write nothing. Writing it is not shipping: it commits and posts nothing.
+
 ## Hard-enforced audit gate (Claude Code only)
 A `SubagentStop` hook (`.claude/hooks/audit-track.sh`) records which roles have run and which audits are
 still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/hooks/audit-gate.sh`)

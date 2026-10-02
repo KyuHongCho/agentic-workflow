@@ -22,6 +22,13 @@
 ## Produces
 **Review findings:** PASS/FAIL + issues (each with location + reason).
 
+**Hand them back in the shape of the review summary comment** — `### Review — <PASS or CHANGES
+REQUESTED>`, the one-sentence summary, the `Findings` table and the `Verification` block, exactly as in
+`agentic-review-guideline.md` at the root of this system. The coordinating thread saves that comment
+unchanged as the review record (`../shared/handoff.md` § *Review record*) once the audit passes, so
+reshaping it later would mean inventing what you meant. With no PR to anchor inline comments, put
+**every** finding in the table (`0 inline, N here`). You do not write the file or choose where it goes.
+
 ## Cross-cutting (shared skills)
 - **Ground every claim empirically per `../shared/verify.md`** — run the existing tests; where none
   covers the claim, create a throwaway test and/or temporarily amend the code, run it, and observe.

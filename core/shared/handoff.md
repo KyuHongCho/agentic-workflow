@@ -22,13 +22,18 @@ Two boundaries need it, and they lose different things:
   when the plan stage ends, per `../roles/plan.md`'s "When done" bullet and § *Where to write it*.
 - **Session:** before a context ends with work unfinished — a slice completed, a budget exhausted, or
   the human stopping for the day.
+- **Review:** when `review-audit` returns `PASS` — a **review record** is then always saved, with no
+  request needed (§ *Review record*). This is the one document here that is not conditional on a
+  boundary or on the human asking.
 
 ## Where to write it
 
 **These next two sections — *Where to write it* and *What to name it* — govern any workflow document
-this system produces, not just handoff records, and so does § *Rules*.** Today there are two kinds: a
-**handoff record** (this file) and a **plan document** (`../roles/plan.md`). Read `<kind>` below as
-whichever you are writing — `handoff` or `plan`. What belongs to the handoff record alone is the
+this system produces, not just handoff records, and so does § *Rules*.** Today there are three kinds: a
+**handoff record** (this file), a **plan document** (`../roles/plan.md`) and a **review record**
+(§ *Review record*, below). Read `<kind>` below as whichever you are writing — `handoff`, `plan` or
+`review`. The **location question** is common to all three; the **filename** is not — a review record
+is named per § *Review record*, not by the `<n>-<summary>` recipe in § *What to name it*. What belongs to the handoff record alone is the
 boundary split above, § *Stage handoff*, § *Session handoff*, and the § *Rules* bullets about the
 record itself — the `recorded:` clock, `status: blocked`, the receiving stage's confirmation, and
 keeping the record a pointer.
@@ -54,8 +59,8 @@ coordinating thread — it asks and it writes.
 
 ## What to name it
 
-`<kind>-<project-name>_<n>-<summary>.md` — `<kind>` is `handoff` or `plan`, `<project-name>` the one
-you derived above, then:
+`<kind>-<project-name>_<n>-<summary>.md` — `<kind>` is `handoff` or `plan` (a `review` record is named
+by § *Review record* instead), `<project-name>` the one you derived above, then:
 
 - **`<n>` — the next number in the chosen directory.** Read it off the directory; never guess it, and
   never restart at 1 because you personally have not written one before. **The sequence is per project
@@ -78,6 +83,58 @@ you derived above, then:
 
 If the name you land on already exists — whichever kind it is — say so and ask whether to add or
 supersede — **never overwrite silently.**
+
+## Review record
+
+The **keepsake of a finished `review ↔ review-audit` loop**: the review's summary comment and the
+audit's comment, kept together in one file. It is a record, not a stage handoff — the dispatch
+carries the findings forward as usual (§ *Stage handoff*); this file is what remains once the loop
+is closed.
+
+**When: always, once `review-audit` returns `PASS`** — whatever the review's own verdict was (`PASS`
+or `CHANGES REQUESTED`). A loop that ends in escalation to the human with no `PASS` writes nothing:
+the human holds the objection history, and there is no audited verdict to keep. Only the
+**coordinating thread** writes it — the review and the audit hand back their comments and stop.
+
+**Ask the human twice, one question at a time:**
+
+1. **Where** — § *Where to write it*, the same four options. Do not skip it because the last review
+   record went somewhere.
+2. **Which PR number** — it is part of the filename and a role cannot know it. Look it up first
+   (`gh pr list --head <branch> --state all --json number`) and offer what you found. If no PR
+   exists yet, the options are `pending` (the human renames it once the PR is opened; nothing does
+   that automatically) or a number the human types.
+
+**Name:** `review-<project-name>-pr-<number>-<branch>.md`
+- `<project-name>` — as above.
+- `pr-<number>` — the PR number, or `pr-pending`.
+- `<branch>` — the branch under review with every `/` replaced by `-`
+  (`feat/slice-6-topic-selection` → `feat-slice-6-topic-selection`).
+
+If that name already exists (a re-review of the same PR), say so and ask whether to add or supersede —
+**never overwrite silently**. Adding means a revision marker `-r<N>` before `.md`
+(`…-feat-x-r2.md`); unlike a bare `-2`, it cannot be mistaken for the end of another branch's name.
+Read the next `N` off the directory, matching the exact base name — do not guess:
+
+```bash
+ls <dir> | sed -n 's/^<base>-r\([0-9][0-9]*\)\.md$/\1/p' | sort -n | tail -1   # empty -> 2, else printed + 1
+```
+
+**Content.** An HTML comment header (project, branch, base commit, date from `date '+%Y-%m-%d'`, and
+a note when the PR number is `pending`), then **the review's summary comment**, `---`, **the audit's
+comment**, both in the shapes of `agentic-review-guideline.md` and `agentic-review-audit-guideline.md`
+(repo root of this system) — verbatim, final round only. Where a PR does not yet exist there is no
+diff to anchor inline comments on, so **every finding is a row of the table** (`0 inline, N here`).
+Never pad a field to fit the shape: where the shape asks for something that did not happen — most
+often the audit's **blind pass**, which needs the audit dispatched *before* it sees the review — say
+that it did not.
+
+A `REVISE` round that preceded the final `PASS` is not reproduced; mention it in one line under
+**Re-verification** (`Rounds: 2 — the first REVISE objected to …`).
+
+**Same rules as any workflow document:** § *Rules* — every path listed exists, no secrets,
+verified-vs-recalled distinguished, and never ship (a review record is not a PR comment; posting it
+is a separate act under `shipping.md`).
 
 ## Stage handoff
 

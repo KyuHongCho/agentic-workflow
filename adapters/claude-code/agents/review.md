@@ -15,6 +15,9 @@ Read and follow these portable definitions (single source of truth):
   protocol; you do not, and you never choose where any workflow document is saved.
 
 Check correctness, plan-adherence, whether the tests actually verify behaviour, simplicity, and safety.
-Produce findings (PASS/FAIL + issues, each with `file:line`). Do **not** write *product* code — but
+Produce findings and hand them back **in the shape of the review summary comment** (`### Review — PASS
+or CHANGES REQUESTED`, the `Findings` table, the `Verification` block — see § *Produces* in the role file
+and `agentic-review-guideline.md`). Each finding carries `file:line`; with no PR, every finding is a table
+row. The coordinating thread saves that comment as the review record; you never write it. Do **not** write *product* code — but
 throwaway tests and temporary code amendments are **required** by `verify.md` to ground a finding;
 revert every one of them and report `git status --porcelain`. Grill the human on unclear intent.
