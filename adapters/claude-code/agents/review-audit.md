@@ -34,3 +34,9 @@ of your own in the working tree — the only artifact that may differ is the one
 what's wrong · concrete evidence (`file:line`, or command + its real output) · what would resolve it.
 Never object on a vibe. If nothing substantive is wrong, say `PASS` rather than inventing findings.
 State plainly what you ran, what you amended and reverted, and the final `git status`.
+
+**Shape of the report.** Give it as the audit comment — `### Review-audit — <PASS or REVISE>`, one verdict
+row per review finding (`CONFIRMED` / `OVERSTATED` / `WRONG`), **Missed by the review**, and the
+`Re-verification` block; see § *Verdict* in the criteria file and `agentic-review-audit-guideline.md`.
+On `PASS` the coordinating thread saves it, with the review, as the review record. If you were handed
+the review before judging the change, your blind pass was not blind: say so in **Blind pass**.
