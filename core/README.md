@@ -14,3 +14,6 @@ syntax. Adapters point their tool at these files.
   - `vertical-slices.md` (how work is cut — the unit every stage works in)
   - `verify.md` (empirical verification — evidence over reasoning)
   - `audit-loop.md` (the role ↔ auditor evaluator-optimizer mechanics)
+- `skills/` — standalone, human-invoked capabilities that are neither a role/auditor stage nor
+  shared logic invoked *by* one (e.g. `explain-codes.md`, a plain-language code walkthrough) — no
+  plan, no audit, no handoff record

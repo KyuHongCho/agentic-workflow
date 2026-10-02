@@ -14,8 +14,8 @@ judgment failures.
 ## Tier 1 — mechanical, hard-fail unless justified in writing
 
 Run against the target repo's tracked source files, using its own language extensions (adjust the
-`--include=` globs below — e.g. this repo's tracked types are `.md` (31 files), `.sh` (8), and
-`.yml` (2) — zero `.py`). Plain `grep`
+`--include=` globs below — e.g. this repo's tracked types are `.md`, `.sh` and `.yml` — zero
+`.py`). Plain `grep`
 — every environment running these roles already holds that tool grant, including CI's read-only
 `review` (confirmed against its actual `--allowedTools` grant, which has `Bash(grep:*)` but no
 general Bash or Python interpreter). Each command needs a path/include argument to actually search

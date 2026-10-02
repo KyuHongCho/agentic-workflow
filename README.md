@@ -8,7 +8,8 @@ A personal, tool-agnostic system for a **human-in-the-loop, adversarially-audite
 ## Architecture — portable core + thin adapters + MCP
 
 - **`core/`** — Portable **Markdown**: role definitions, auditor criteria, the grilling
-  protocol, checklists. **Tool-agnostic** — any coding agent can read it.
+  protocol, checklists, and standalone skills (e.g. `explain-codes`, an on-demand plain-language
+  code walkthrough — `/explain-codes`). **Tool-agnostic** — any coding agent can read it.
 - **`adapters/`** — Thin per-tool glue that points one tool at `core/` (no logic of its own):
   - `agents-md/` — one `AGENTS.md` → Codex, Cursor and others read it natively (soft gate: instruction, not a mechanical block)
   - `claude-code/` — `CLAUDE.md` + `.claude/skills/` + subagents + hooks (hard-enforced gates — the one tool offering more than instructions)
