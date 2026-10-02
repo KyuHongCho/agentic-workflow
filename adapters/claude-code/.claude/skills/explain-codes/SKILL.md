@@ -17,8 +17,9 @@ Four things it cannot know about this tool:
 - **Use `AskUserQuestion` for step 0's target confirmation.** Present the candidates as its options,
   the most likely one labelled "(Recommended)" — never proceed past step 0 on an assumed target,
   even one that looks obvious, unless the human's own request already named it explicitly. Put the
-  depth question (line by line marked "(Recommended)") in the same call, and for a whole-repo target
-  ask the shape question (feature by feature / architecture map / summary) as a follow-up call.
+  depth question (line by line marked "(Recommended)") in the same call, and for a whole-repo or
+  broad target ask the shape question (feature by feature / architecture map / summary) as a
+  follow-up call.
 - **"Whatever the environment provides" (the core file's step 1) means, here:** file search/read
   tools for scanning, a shell for diffs/tests/temporary verification, and a web-fetch tool for
   checking a third-party tool's own docs or package registry when step 5 calls for it. Use them
