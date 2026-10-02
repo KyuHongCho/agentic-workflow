@@ -14,20 +14,21 @@ options. Nothing here repeats it.
 comments of a finished loop — `handoff.md` § *Review record*; named
 `review-<project-name>-pr-<number>-<branch>.md`, **not** by the `<n>-<summary>` recipe below, and
 never given a `state:` or `recorded:` field). `handoff.md` § *Where to write it*, § *What to
-name it* and § *Rules* govern **both** — the name `<kind>-<project-name>_<n>-<summary>.md`, and the
+name it* and § *Rules* govern **all three** — the location question, the name
+`<kind>-<project-name>_<n>-<summary>.md` (a review record excepted, per § *Review record*), and the
 rules on paths existing, redaction, verified-vs-recalled and never shipping. The boundary split, §
 *Stage handoff*, § *Session handoff* and the § *Rules* bullets about the record itself are the
 handoff record's alone; a plan document is the plan itself, saved under that name.
 
-Six things it cannot know about Claude Code:
+Seven things it cannot know about Claude Code:
 
 - **Ask the location question with `AskUserQuestion`.** `handoff.md` requires the human to choose
   and lists the four options; present them as that tool's choices, `documents/<project-name>/`
   marked *(recommended)*. Never pick one yourself, and never skip the question because a previous
   document went somewhere.
-- **Only the main thread writes either document.** A role or auditor subagent has no user-facing
-  tool, so it cannot ask — it reports its artifact and hands back. That hand-back is correct
-  behaviour, for a plan document exactly as for a handoff record.
+- **Only the main thread writes any of these documents.** A role or auditor subagent has no
+  user-facing tool, so it cannot ask — it reports its artifact and hands back. That hand-back is
+  correct behaviour, for a plan document or a review record exactly as for a handoff record.
 - **`Read` does not expand `$AGENTIC_WORKFLOW_HOME`** — resolve it with Bash first, then use the
   absolute path.
 - **Handoff record only — re-run the `state` values with Bash and paste the real output.**

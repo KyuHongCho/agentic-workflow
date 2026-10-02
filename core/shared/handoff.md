@@ -102,7 +102,8 @@ the human holds the objection history, and there is no audited verdict to keep. 
    record went somewhere.
 2. **Which PR number** — it is part of the filename and a role cannot know it. Look it up first
    (`gh pr list --head <branch> --state all --json number`) and offer what you found. If no PR
-   exists yet, the options are `pending` (renamed once the PR is opened) or a number the human types.
+   exists yet, the options are `pending` (the human renames it once the PR is opened; nothing does
+   that automatically) or a number the human types.
 
 **Name:** `review-<project-name>-pr-<number>-<branch>.md`
 - `<project-name>` — as above.
@@ -116,7 +117,7 @@ If that name already exists (a re-review of the same PR), say so and ask whether
 Read the next `N` off the directory, matching the exact base name — do not guess:
 
 ```bash
-ls <dir> | sed -n 's/^<base>-r\([0-9][0-9]*\)\.md$/\1/p' | sort -n | tail -1   # empty -> use 2
+ls <dir> | sed -n 's/^<base>-r\([0-9][0-9]*\)\.md$/\1/p' | sort -n | tail -1   # empty -> 2, else printed + 1
 ```
 
 **Content.** An HTML comment header (project, branch, base commit, date from `date '+%Y-%m-%d'`, and

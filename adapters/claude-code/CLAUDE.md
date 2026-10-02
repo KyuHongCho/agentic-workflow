@@ -83,7 +83,7 @@ Unlike a build hand-back, the review stage **always** leaves a file. Once `revie
 the audit's comment, verbatim and final round only, in the shapes of `agentic-review-guideline.md` and
 `agentic-review-audit-guideline.md`. Ask with `AskUserQuestion`, **one prompt at a time**: first the
 **location** (`documents/<project-name>/` recommended), then the **PR number** (look it up with `gh pr
-list --head <branch>`; `pending` when no PR exists). The name is
+list --head <branch> --state all`; `pending` when no PR exists). The name is
 `review-<project-name>-pr-<number>-<branch>.md`, with `/` in the branch turned into `-`. If the loop
 escalated without a `PASS`, write nothing. Writing it is not shipping: it commits and posts nothing.
 
