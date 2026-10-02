@@ -21,6 +21,14 @@ unaudited artifact; never exit `PASS` with an objection still open.
 - Auditors — `$AGENTIC_WORKFLOW_HOME/core/auditors/plan-audit.md` (+ `build-audit.md`, `review-audit.md`)
 - Audit loop — `$AGENTIC_WORKFLOW_HOME/core/shared/audit-loop.md`
 - Verify (empirical checks) — `$AGENTIC_WORKFLOW_HOME/core/shared/verify.md`
+- Explain-codes (on-demand code walkthrough) — `$AGENTIC_WORKFLOW_HOME/core/skills/explain-codes.md`
+
+## On-demand code explanations
+If the human types `/explain-codes`, or asks in any words to have code, a change, or a feature
+explained — especially for a novice or non-technical reader — follow
+`$AGENTIC_WORKFLOW_HOME/core/skills/explain-codes.md`. This is a plain answer in conversation, not a
+stage in the plan → build → review loop: it does not need a plan, does not get audited, and produces
+no handoff record.
 
 ## Enforcement on this tool
 This adapter conveys the system as **instructions** (a soft gate): you are *instructed* to grill and
