@@ -32,9 +32,8 @@ Two boundaries need it, and they lose different things:
 this system produces, not just handoff records, and so does § *Rules*.** Today there are three kinds: a
 **handoff record** (this file), a **plan document** (`../roles/plan.md`) and a **review record**
 (§ *Review record*, below). Read `<kind>` below as whichever you are writing — `handoff`, `plan` or
-`review`. The **location question** is common to all three; the **filename** is not — a review record
-is named per § *Review record*, not by the `<n>-<summary>` recipe in § *What to name it*. What belongs to the handoff record alone is the
-boundary split above, § *Stage handoff*, § *Session handoff*, and the § *Rules* bullets about the
+`review`. The **location question** and the **filename** are common to all three. What belongs to the handoff
+record alone is the boundary split above, § *Stage handoff*, § *Session handoff*, and the § *Rules* bullets about the
 record itself — the `recorded:` clock, `status: blocked`, the receiving stage's confirmation, and
 keeping the record a pointer.
 
@@ -59,13 +58,13 @@ coordinating thread — it asks and it writes.
 
 ## What to name it
 
-`<kind>-<project-name>_<n>-<summary>.md` — `<kind>` is `handoff` or `plan` (a `review` record is named
-by § *Review record* instead), `<project-name>` the one you derived above, then:
+`<kind>-<project-name>_<n>-<summary>.md` — `<kind>` is `handoff`, `plan` or `review`,
+`<project-name>` the one you derived above, then:
 
 - **`<n>` — the next number in the chosen directory.** Read it off the directory; never guess it, and
   never restart at 1 because you personally have not written one before. **The sequence is per project
-  *and per kind*:** the recipe matches `^<kind>-<project-name>_`, so `handoff-` and `plan-` number
-  separately by construction. Within one kind the boundary makes no difference — a stage handoff and a
+  *and per kind*:** the recipe matches `^<kind>-<project-name>_`, so `handoff-`, `plan-` and `review-`
+  number separately by construction. Within one kind the boundary makes no difference — a stage handoff and a
   session handoff share that kind's run of numbers:
 
   ```bash
@@ -96,35 +95,21 @@ or `CHANGES REQUESTED`). A loop that ends in escalation to the human with no `PA
 the human holds the objection history, and there is no audited verdict to keep. Only the
 **coordinating thread** writes it — the review and the audit hand back their comments and stop.
 
-**Ask the human twice, one question at a time:**
+**Ask the human once:** where — § *Where to write it*, the same four options. Do not skip it because
+the last review record went somewhere. Name it per § *What to name it*
+(`review-<project-name>_<n>-<summary>.md`); `<summary>` names the work reviewed, not the mechanism.
+A re-review takes the next `<n>`; its header's `supersedes:` names the record it replaces.
 
-1. **Where** — § *Where to write it*, the same four options. Do not skip it because the last review
-   record went somewhere.
-2. **Which PR number** — it is part of the filename and a role cannot know it. Look it up first
-   (`gh pr list --head <branch> --state all --json number`) and offer what you found. If no PR
-   exists yet, the options are `pending` (the human renames it once the PR is opened; nothing does
-   that automatically) or a number the human types.
-
-**Name:** `review-<project-name>-pr-<number>-<branch>.md`
-- `<project-name>` — as above.
-- `pr-<number>` — the PR number, or `pr-pending`.
-- `<branch>` — the branch under review with every `/` replaced by `-`
-  (`feat/slice-6-topic-selection` → `feat-slice-6-topic-selection`).
-
-If that name already exists (a re-review of the same PR), say so and ask whether to add or supersede —
-**never overwrite silently**. Adding means a revision marker `-r<N>` before `.md`
-(`…-feat-x-r2.md`); unlike a bare `-2`, it cannot be mistaken for the end of another branch's name.
-Read the next `N` off the directory, matching the exact base name — do not guess:
-
-```bash
-ls <dir> | sed -n 's/^<base>-r\([0-9][0-9]*\)\.md$/\1/p' | sort -n | tail -1   # empty -> 2, else printed + 1
-```
-
-**Content.** An HTML comment header (project, branch, base commit, date from `date '+%Y-%m-%d'`, and
-a note when the PR number is `pending`), then **the review's summary comment**, `---`, **the audit's
-comment**, both in the shapes of `agentic-review-guideline.md` and `agentic-review-audit-guideline.md`
-(repo root of this system) — verbatim, final round only. Where a PR does not yet exist there is no
-diff to anchor inline comments on, so **every finding is a row of the table** (`0 inline, N here`).
+**Content.** An HTML comment header (project, branch, base commit, date from `date '+%Y-%m-%d'`,
+`pr:` — the PR URL(s), or `pending` — and, for a re-review, `supersedes:` — the earlier record's
+filename). Fill `pr:` at write time: run `gh pr list --head <branch> --state all --json url` and
+paste the URL(s), `pending` when that is empty or `gh` is unavailable. Nothing updates it
+afterwards — the human edits that one line by hand once a PR is opened, and leaving it `pending` is
+acceptable. The filename never changes. Then **the review's summary comment**, `---`, **the audit's
+comment**, both in the shapes of `agentic-review-guideline.md` and
+`agentic-review-audit-guideline.md` (repo root of this system) — verbatim, final round only. Where a
+PR does not yet exist there is no diff to anchor inline comments on, so **every finding is a row of
+the table** (`0 inline, N here`).
 Never pad a field to fit the shape: where the shape asks for something that did not happen — most
 often the audit's **blind pass**, which needs the audit dispatched *before* it sees the review — say
 that it did not.

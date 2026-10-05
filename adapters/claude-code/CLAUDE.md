@@ -81,10 +81,9 @@ Unlike a build hand-back, the review stage **always** leaves a file. Once `revie
 `PASS` — whatever the review's own verdict — run the `handoff` skill for a **review record**
 (`$AGENTIC_WORKFLOW_HOME/core/shared/handoff.md` § *Review record*): the review's summary comment and
 the audit's comment, verbatim and final round only, in the shapes of `agentic-review-guideline.md` and
-`agentic-review-audit-guideline.md`. Ask with `AskUserQuestion`, **one prompt at a time**: first the
-**location** (`documents/<project-name>/` recommended), then the **PR number** (look it up with `gh pr
-list --head <branch> --state all`; `pending` when no PR exists). The name is
-`review-<project-name>-pr-<number>-<branch>.md`, with `/` in the branch turned into `-`. If the loop
+`agentic-review-audit-guideline.md`. Ask with `AskUserQuestion` for the **location**
+(`documents/<project-name>/` recommended). The skill owns the filename and `<n>`; do not restate
+them here. The PR goes in the header's `pr:` line, not the name. If the loop
 escalated without a `PASS`, write nothing. Writing it is not shipping: it commits and posts nothing.
 
 ## Hard-enforced audit gate (Claude Code only)
