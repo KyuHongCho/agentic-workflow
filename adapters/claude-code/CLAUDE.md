@@ -64,10 +64,10 @@ the stage handoff payload**, carrying the fields
 the document itself and you fill in the path you saved it to and the slice the human chose. A field
 a role could not know is yours to complete, never its to invent.
 
-Build's case: on `build-audit` `PASS`, **carry that report into the `review` dispatch and write no
-file**. The dispatch is the handoff — inside one live session it reaches every reader a file would.
-Keep the role's hand-back verbatim rather than in your own memory; a field you can no longer
-reconstruct is re-asked of the role, never invented.
+Build's case: when review runs (see the consent sequence, below), **carry the `build-audit` `PASS`
+report into the `review` dispatch and write no file**. The dispatch is the handoff — inside one live
+session it reaches every reader a file would. Keep the role's hand-back verbatim rather than in your
+own memory; a field you can no longer reconstruct is re-asked of the role, never invented.
 
 Write an actual record only at a **session boundary** (a context ending with work unfinished) or
 **because the human asked for one** — then run the `handoff` skill, which owns the location question
@@ -153,11 +153,16 @@ hook (`.claude/hooks/ship-gate.sh`) intercepts `git commit` / `git push`,
   that would not actually prompt (`bypassPermissions`, `dontAsk`) it hard-blocks instead, because
   an unshown prompt is not consent.
 
-**You (the main thread) own the consent sequence.** After a slice reaches `build-audit` PASS, run
+**You (the main thread) own the consent sequence.** First settle whether `review` still owes a run
+(`shipping.md` § *Where review sits*): when the last slice of a unit of work reaches `build-audit`
+PASS and review has not covered it, ask with `AskUserQuestion` — run `review ↔ review-audit` now,
+commit first, or skip review — **before Q1**; otherwise go straight to Q1. Then run
 Q1 → Q2 → Q3 from `shipping.md`, **one question at a time**: propose a one-line commit message
 derived from the staged diff and ask whether to commit; report whether an upstream is set and ask
-whether to push; ask whether to open the PR and, if yes, run the `open-pr` skill. Never bundle the
-questions, and never treat "build this" as consent to publish it.
+whether to push, and say in the Q2 prompt whether review ran, was skipped (quote the answer), or
+was covered by an earlier review (name it); if none holds (e.g. after *commit first*), re-ask the
+review question, run now or skip, before Q2; ask whether to open the PR and, if yes, run the
+`open-pr` skill. Never bundle the questions, and never treat "build this" as consent to publish it.
 
 Read-only forms (`git status`, `git diff`, `git log`, `git push --dry-run`, `gh pr view|checks`)
 pass through untouched. Local-only `git tag` / `git merge` are deliberately not gated: they publish
