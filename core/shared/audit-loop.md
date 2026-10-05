@@ -20,7 +20,8 @@ after every slice has landed cannot tell you *which* slice broke — that is hor
 re-entering through the audit door.
 
 `plan ↔ plan-audit` runs once on the plan (it audits the slicing itself). `review ↔ review-audit`
-runs once at the end.
+runs once per unit of work, after its last slice and before the push
+(`shipping.md` § *Where review sits*).
 
 ## Protocol
 1. The `role` produces its artifact.
