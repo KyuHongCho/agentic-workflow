@@ -98,15 +98,18 @@ the human holds the objection history, and there is no audited verdict to keep. 
 **Ask the human once:** where — § *Where to write it*, the same four options. Do not skip it because
 the last review record went somewhere. Name it per § *What to name it*
 (`review-<project-name>_<n>-<summary>.md`); `<summary>` names the work reviewed, not the mechanism.
-If the name exists, ask whether to add or supersede — never overwrite silently.
+A re-review takes the next `<n>`; its header's `supersedes:` names the record it replaces.
 
-**Content.** An HTML comment header (project, branch, base commit, date from `date '+%Y-%m-%d'`, and
-`pr:` — the PR URL(s), or `pending`). Nothing updates `pr:` automatically: the human edits that
-one line by hand once a PR is opened, and leaving it `pending` is acceptable. The filename never
-changes. Then **the review's summary comment**, `---`, **the audit's comment**, both in the shapes
-of `agentic-review-guideline.md` and `agentic-review-audit-guideline.md` (repo root of this
-system) — verbatim, final round only. Where a PR does not yet exist there is no
-diff to anchor inline comments on, so **every finding is a row of the table** (`0 inline, N here`).
+**Content.** An HTML comment header (project, branch, base commit, date from `date '+%Y-%m-%d'`,
+`pr:` — the PR URL(s), or `pending` — and, for a re-review, `supersedes:` — the earlier record's
+filename). Fill `pr:` at write time: run `gh pr list --head <branch> --state all --json url` and
+paste the URL(s), `pending` when that is empty or `gh` is unavailable. Nothing updates it
+afterwards — the human edits that one line by hand once a PR is opened, and leaving it `pending` is
+acceptable. The filename never changes. Then **the review's summary comment**, `---`, **the audit's
+comment**, both in the shapes of `agentic-review-guideline.md` and
+`agentic-review-audit-guideline.md` (repo root of this system) — verbatim, final round only. Where a
+PR does not yet exist there is no diff to anchor inline comments on, so **every finding is a row of
+the table** (`0 inline, N here`).
 Never pad a field to fit the shape: where the shape asks for something that did not happen — most
 often the audit's **blind pass**, which needs the audit dispatched *before* it sees the review — say
 that it did not.
