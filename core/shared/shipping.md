@@ -39,8 +39,8 @@ Q2 states the outcome (see Q2 step 0). No hook checks this: `ship-gate.sh` gates
 push and PR actions themselves.
 
 ## The consent sequence — Q1 → Q2 → Q3, in order, one at a time
-Run it only after the artifact is audited `PASS`; the review question above must be settled before
-Q2, not before Q1.
+Run it only after the artifact is audited `PASS`. The review question above is asked before Q1 (last
+or only slice) but need only be settled before Q2.
 Ask each question separately; never bundle them.
 
 ### Q1 — commit
@@ -74,8 +74,9 @@ Either way the description must be **fact-checked and proof-read before it is sh
 every command, number and claim re-run or re-read, never recalled.
 
 ## Rules
-- Never ship an unaudited artifact — except a review the human explicitly skipped: an explicit
-  answer (quoted) in Q2, a recorded waiver. Never ship while `grilling` has an open question.
+- Never ship an unaudited artifact, and never while `grilling` has an open question.
+- Skipping review is the one waiver: the human's explicit answer, quoted in Q2 and kept in the
+  conversation only. It never waives `build-audit`.
 - Never push to a protected/default branch, force-push, or merge, without being asked for that
   specific action.
 - "The human told me to build it" is **not** consent to publish it.

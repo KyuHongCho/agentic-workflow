@@ -160,9 +160,9 @@ commit first, or skip review — **before Q1**; otherwise go straight to Q1. The
 Q1 → Q2 → Q3 from `shipping.md`, **one question at a time**: propose a one-line commit message
 derived from the staged diff and ask whether to commit; report whether an upstream is set and ask
 whether to push, and say in the Q2 prompt whether review ran, was skipped (quote the answer), or
-was covered by an earlier review (name it); ask whether to open the PR and, if yes, run the
-`open-pr` skill. Never bundle the
-questions, and never treat "build this" as consent to publish it.
+was covered by an earlier review (name it); if none holds (e.g. after *commit first*), re-ask the
+review question, run now or skip, before Q2; ask whether to open the PR and, if yes, run the
+`open-pr` skill. Never bundle the questions, and never treat "build this" as consent to publish it.
 
 Read-only forms (`git status`, `git diff`, `git log`, `git push --dry-run`, `gh pr view|checks`)
 pass through untouched. Local-only `git tag` / `git merge` are deliberately not gated: they publish
