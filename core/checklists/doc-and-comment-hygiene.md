@@ -62,13 +62,13 @@ harness's own permission-parsing source code, which is outside this repository.)
 | Em dash in a comment/docstring | `grep -n '^\s*#.*—'` | Check the target repo's own convention first — see note below (this check must not be applied blind). **Does not apply to `.md` files by default — see note below**. | 22/22 hits (pinned, unverified — same as above) reproduced by two independent methods. |
 | TODO/FIXME | `grep -n -e TODO -e FIXME` | Take it to a tracked issue. | 0/0, no false positives possible on an absent pattern. |
 | Commented-out code | `grep -nE -e '^\s*#\s*import ' -e '^\s*#\s*from \S+ import' -e '^\s*#\s*def \w+\(' -e '^\s*#\s*class \w+[:(]' -e '^\s*#\s*return[ (]'` | Dead code as a comment is never a comment. | 0/0 in the source case; kept as a standing check. |
-| Comment block over 3 lines | The two commands below the table. | Over the Comment budget. | GNU grep 3.12 in an `ubuntu` container, fixtures (header, directives, 3 vs 4 lines, EOF, CRLF, grown comment), each command run in a bare `sh -c`. Not run in CI. |
+| Comment block over 3 lines | The two commands below the table. | Over the Comment budget: `REVISE` for `build-audit`, a `(nit)` for `review`. | GNU grep 3.12 in an `ubuntu` container, fixtures (header, directives, 3 vs 4 lines, EOF, CRLF, grown comment), each command run in a bare `sh -c`. Not run in CI. |
 
 ```sh
 # diff (default for a PR): blocks whose every line was added
-git diff <base> <head> -U0 | grep -Pzo '(?m)(^\+[ \t]*#(?!!|\s*(?:noqa|type:|pragma|fmt:|pylint|isort|mypy|-\*-|coding[:=]|vim?:|eslint|prettier|@ts-|istanbul|nolint))[^\r\n]*\r?(?:\n|\z)){4,}'
+git diff <base> <head> -U0 | grep -Pzo '(?m)(^\+[ \t]*#(?!!|[ \t]*(?:noqa|type:|pragma|fmt:|pylint|isort|mypy|-\*-|coding[:=]|vim?:|eslint|prettier|@ts-|istanbul|nolint))[^\r\n]*\r?(?:\n|\z)){4,}'
 # whole file (secondary): one changed file, never `-r .`
-grep -Pzo '(?m)\A(?=(?:[ \t]*#[^\n]*\n)*?[ \t]*#[^\n]*(?:Copyright|Licen[sc]e|SPDX))(?:[ \t]*#[^\n]*\n)+(*SKIP)(*F)|(^[ \t]*#(?!!|\s*(?:noqa|type:|pragma|fmt:|pylint|isort|mypy|-\*-|coding[:=]|vim?:|eslint|prettier|@ts-|istanbul|nolint))[^\r\n]*\r?(?:\n|\z)){4,}' path/to/changed.py
+grep -Pzo '(?m)\A(?=(?:[ \t]*#[^\n]*\n)*?[ \t]*#[^\n]*(?:Copyright|Licen[sc]e|SPDX))(?:[ \t]*#[^\n]*\n)+(*SKIP)(*F)|(^[ \t]*#(?!!|[ \t]*(?:noqa|type:|pragma|fmt:|pylint|isort|mypy|-\*-|coding[:=]|vim?:|eslint|prettier|@ts-|istanbul|nolint))[^\r\n]*\r?(?:\n|\z)){4,}' path/to/changed.py
 ```
 
 Each is one self-contained invocation (no shell variable: an empty one makes the lookahead
@@ -111,9 +111,10 @@ the latter when precision matters) and `core/README.md` (9, both methods agree t
 as the dominant prose style, with only one incidental ASCII `--` in `design-notes.md` against
 its 39 em dashes — a single outlier, not a competing convention. Before applying this
 check to a target repo's `.md` files, check that repo's own documented or observed doc convention
-first; don't assume it must match the code-comment convention. Every other Tier 1 check above, and
-all of Tier 2 and Tier 3 below, applies to `.md` prose exactly as it does to code comments — only
-this em-dash check is carved out for docs.
+first; don't assume it must match the code-comment convention. Every other Tier 1 check above
+except the comment-block row, and all of Tier 2 and Tier 3 below, applies to `.md` prose exactly as
+it does to code comments — only the em-dash and comment-block checks are carved out for docs (a `#`
+there is a heading or a code-fence comment).
 
 **The same caution applies to code comments, not only `.md` prose.** `crop-cms-backend`'s
 (pinned, unverified — same as above) code comments use ASCII `--` (this checklist's origin). This repo's own code comments
