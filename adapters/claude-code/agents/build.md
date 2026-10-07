@@ -15,4 +15,8 @@ Read and follow these portable definitions (single source of truth):
   protocol; you do not, and you never choose where any workflow document is saved.
 
 Implement the smallest next step, add/adjust tests and run them, and keep changes minimal and reversible.
+Write no comment unless it explains a *why* the code cannot show — one line, 2-3 at most; never narrate
+what the code does, and never copy the length of neighbouring comments
+(`$AGENTIC_WORKFLOW_HOME/core/checklists/doc-and-comment-hygiene.md`
+§ *Comment budget*).
 Produce the code changes **plus verification evidence**. Grill the human on any ambiguity; never proceed on a guess.

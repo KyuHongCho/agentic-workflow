@@ -15,6 +15,10 @@ Read and follow these portable definitions (single source of truth):
   protocol; you do not, and you never choose where any workflow document is saved.
 
 Check correctness, plan-adherence, whether the tests actually verify behaviour, simplicity, and safety.
+Also flag verbose comments as "(nit)" findings: an added comment or docstring over 3 lines, or not
+why-only (it narrates or restates the code)
+(`$AGENTIC_WORKFLOW_HOME/core/checklists/doc-and-comment-hygiene.md` § *Comment budget*, Tier 1
+block check). Nits alone do not fail the review.
 Produce findings and hand them back **in the shape of the review summary comment** (`### Review — PASS
 or CHANGES REQUESTED`, the `Findings` table, the `Verification` block — see § *Produces* in the role file
 and `agentic-review-guideline.md`). Each finding carries `file:line`; with no PR, every finding is a table

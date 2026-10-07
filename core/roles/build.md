@@ -22,7 +22,10 @@
    writing code. Do not start building to find out.
 1. Take the next slice from the **frontier** (all blockers done) and implement it **end-to-end**, per `../shared/vertical-slices.md`. One slice at a time — each slice gets its own `build-audit`.
 2. Add/adjust tests; run them.
-3. Keep changes minimal and reversible; match existing style.
+3. Keep changes minimal and reversible; match existing style — **except comments**: write none unless
+   it explains a *why* the code cannot show, then one line (2-3 at most). Never narrate what the code
+   does, and never copy the length of neighbouring comments. See `../checklists/doc-and-comment-hygiene.md`
+   § *Comment budget*.
 4. Record what changed and the verification evidence — including **how to demo this slice** (the
    command, test, or output that shows it working). **This report is the stage handoff payload:**
    carry **every** field `../shared/handoff.md` § *Stage handoff* lists, read off the template
@@ -38,9 +41,11 @@ The **code changes + evidence** they work (test output, run output).
   covers the claim, create a throwaway test and/or temporarily amend the code, run it, and observe.
   **Then delete every throwaway and revert every amendment.** Report what you ran, what you created
   or amended and removed, and the final `git status --porcelain`.
-- **If this slice touches comments, docstrings, or documentation (commonly `README.md`/`docs/*.md`,
+- **If this slice adds or touches comments, docstrings, or documentation (commonly `README.md`/`docs/*.md`,
   but check the repo's actual layout — see `../checklists/doc-and-comment-hygiene.md` for why),
-  self-check against `../checklists/doc-and-comment-hygiene.md`'s Tier 1 before handing back** — a hit you
+  self-check against `../checklists/doc-and-comment-hygiene.md`'s Tier 1 before handing back** — including
+  the comment-block row; delete a comment rather than trim it when the code already says it
+  (directives, shebang/encoding lines, licence headers and generated files stay). A hit you
   cannot justify is a bug in your own work.
 - **When a step is ambiguous, a decision is unspecified, or reality contradicts the plan → invoke
   `../shared/grilling.md`.** Don't guess. This is the same gate as step 0, later: step 0 is the

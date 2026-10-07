@@ -34,6 +34,11 @@ as **unverified**; a run that exhausts its turns posts no audit at all.
 - **Calibration:** Too lenient (waved through a real issue) or too harsh (invented a standard not agreed)?
 - **Comment hygiene:** Did `review` actually check `../checklists/doc-and-comment-hygiene.md` against
   every changed comment, docstring, or documentation file, or only the ones it happened to notice?
+- **Comment budget:** Did `review` flag every added comment or docstring that is over 3 lines or not
+  why-only (directives, headers and generated files exempt)? Run the checklist's comment-block row in
+  Pass 1 (diff form, plus the whole-file form on files that gained a comment line); one the review
+  missed goes under **Missed by the review** but, being a nit, does not by itself make the audit
+  `REVISE`.
 - **Intent:** Do any findings rest on unstated intent rather than the agreed criteria?
 
 ## Verdict
