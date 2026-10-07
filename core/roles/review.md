@@ -11,7 +11,8 @@
   before reviewing.
 
 ## Process
-1. Check: correctness, plan-adherence, whether the tests actually verify the behaviour, simplicity, safety.
+1. Check: correctness, plan-adherence, whether the tests actually verify the behaviour, simplicity, safety,
+   and **comment budget** — comments are why-only, one line, 2-3 at most (see below).
 2. Check **slice integrity** per `../shared/vertical-slices.md`: did each slice land end-to-end and is it demoable on its own? Flag missing/partial acceptance criteria, and scope creep (behaviour in the diff the slice never asked for).
 3. **Render the actual user-facing output and read it as a user would**, not only the diff. The costliest
    defects are interactions between a changed line and an unchanged one, which a patch never shows.
@@ -42,6 +43,14 @@ reshaping it later would mean inventing what you meant. With no PR to anchor inl
   but check the repo's actual layout — see `../checklists/doc-and-comment-hygiene.md` for why), check
   `../checklists/doc-and-comment-hygiene.md`** — Tier 1 is plain `grep`, runnable with the same read-only
   tools as everything else in this role.
+- **Detect verbose comments.** The rule, so you need not open the checklist to apply it: a comment
+  stays only if it explains a *why* the code cannot show, in one line, 2-3 at most. Run the checklist's
+  comment-block row (Tier 1) on the diff, then read every added comment and docstring: a comment over 3
+  lines, one that narrates or restates the code, or one that records process or history is a finding
+  (`file:line`, the verbatim line, one sentence). Raise ONE finding per file, anchored on its first
+  offending line and listing the others. Prefix the finding "(nit)": a review whose only findings are
+  nits is still PASS, unless a comment is also wrong or misleading. Directives, shebang/encoding lines,
+  licence headers and generated files are exempt, and so is an empirical-result comment within 3 lines.
 - **When acceptance criteria or intended behaviour are unclear → invoke `../shared/grilling.md`.**
 - **When done → hand back and stop.** The findings go to `../auditors/review-audit.md` via
   `../shared/audit-loop.md`, which runs after you have handed back — you never see its verdict: a

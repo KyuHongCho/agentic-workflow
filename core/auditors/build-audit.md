@@ -27,6 +27,10 @@ Use `../shared/verify.md` for the method — including **creating a throwaway te
 - **Comment hygiene:** Per `../checklists/doc-and-comment-hygiene.md` — run Tier 1 yourself (don't trust
   the build's self-check), and walk Tiers 2-3 against every changed comment, docstring, or
   documentation file.
+- **Comment budget:** `REVISE` on an added comment or docstring that is not why-only or runs over 3
+  lines: one objection per file, listing `file:line` verbatim and the shorter form or "delete". Exempt:
+  directives, shebang/encoding lines, licence headers, generated files. A green test run does not excuse
+  one; a justified-in-writing exception is accepted.
 
 ## Verdict
 `PASS` or `REVISE` + specific objections (each with the file/behaviour at fault).

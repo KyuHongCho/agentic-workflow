@@ -9,7 +9,31 @@ but check the target repo's own layout first — e.g. this repo alone has 5 file
 literal `README.md`/`docs/*.md` pattern misses most of its own documentation), and
 by `plan`/`plan-audit` for Tier 3 only — a plan
 document has no code comments for Tier 1/2 to check, but is prose subject to the same Tier 3
-judgment failures.
+judgment failures. `build` also applies the Comment budget below *while writing*, not only when
+it self-checks.
+
+## Comment budget — the default is no comment
+
+A comment earns its place only by saying **why**: a reason the code cannot show (a constraint, a trap,
+a lock or ordering requirement, a security or timing concern, a non-obvious decision). Anything else
+is deleted, not trimmed.
+
+- **No comment is the default.** Names, small functions and tests say *what*. Do not narrate steps,
+  restate a name, list the order of checks the code already shows, or explain a line to a reader who
+  can read it.
+- **One line is the norm; 2-3 lines is the hard maximum** for a comment or a docstring body. A reason
+  that needs more belongs in the plan, the PR description or a test name; the code is likely doing too much.
+- **Docstrings:** a one-line summary of what the unit is for, plus the why only if it is not obvious,
+  inside the same cap. A docstring that FastAPI or pydantic serves in the OpenAPI schema is product
+  text: keep it, but keep it short.
+- **Existing comments are not a style to match.** "Match existing style" covers naming and structure,
+  never comment length or density: a codebase full of long comments does not license another one.
+- **No process or history** (who, when, which plan or PR, "added for", "previously").
+- **A result worth keeping** (a measurement, a mutation outcome) goes in a test name, an assertion
+  message or the PR description; a comment holds it only within the 3-line cap.
+- **Exempt, neither counted nor deleted:** tool directives and pragmas (`# noqa`, `# type:`,
+  `# pragma`, `eslint-disable`, `# fmt: off`), shebang and encoding lines, licence headers, and
+  generated files.
 
 ## Tier 1 — mechanical, hard-fail unless justified in writing
 
@@ -38,6 +62,30 @@ harness's own permission-parsing source code, which is outside this repository.)
 | Em dash in a comment/docstring | `grep -n '^\s*#.*—'` | Check the target repo's own convention first — see note below (this check must not be applied blind). **Does not apply to `.md` files by default — see note below**. | 22/22 hits (pinned, unverified — same as above) reproduced by two independent methods. |
 | TODO/FIXME | `grep -n -e TODO -e FIXME` | Take it to a tracked issue. | 0/0, no false positives possible on an absent pattern. |
 | Commented-out code | `grep -nE -e '^\s*#\s*import ' -e '^\s*#\s*from \S+ import' -e '^\s*#\s*def \w+\(' -e '^\s*#\s*class \w+[:(]' -e '^\s*#\s*return[ (]'` | Dead code as a comment is never a comment. | 0/0 in the source case; kept as a standing check. |
+| Comment block over 3 lines | The two commands below the table. | Over the Comment budget. | GNU grep 3.12 in an `ubuntu` container, fixtures (header, directives, 3 vs 4 lines, EOF, CRLF, grown comment), each command run in a bare `sh -c`. Not run in CI. |
+
+```sh
+# diff (default for a PR): blocks whose every line was added
+git diff <base> <head> -U0 | grep -Pzo '(?m)(^\+[ \t]*#(?!!|\s*(?:noqa|type:|pragma|fmt:|pylint|isort|mypy|-\*-|coding[:=]|vim?:|eslint|prettier|@ts-|istanbul|nolint))[^\r\n]*\r?(?:\n|\z)){4,}'
+# whole file (secondary): one changed file, never `-r .`
+grep -Pzo '(?m)\A(?=(?:[ \t]*#[^\n]*\n)*?[ \t]*#[^\n]*(?:Copyright|Licen[sc]e|SPDX))(?:[ \t]*#[^\n]*\n)+(*SKIP)(*F)|(^[ \t]*#(?!!|\s*(?:noqa|type:|pragma|fmt:|pylint|isort|mypy|-\*-|coding[:=]|vim?:|eslint|prettier|@ts-|istanbul|nolint))[^\r\n]*\r?(?:\n|\z)){4,}' path/to/changed.py
+```
+
+Each is one self-contained invocation (no shell variable: an empty one makes the lookahead
+never match, a silent false negative), so it fits `Bash(git diff:*)` / `Bash(grep:*)`. Needs GNU
+`grep -P`; macOS's BSD grep rejects it. `-z` prints the block, not a line number: locate it with
+`grep -nF '<its first line>' <file>`. For `//` comments replace `#` with `//`. Not covered:
+`/* */`, `--`, `<!-- -->` (read them). Directive lines (`noqa`, `type:`, shebang, ...) end a block,
+so a directive inside a long comment splits it and evades the check. The whole-file form skips a
+leading block only if it contains Copyright, License, Licence or SPDX; any other leading block is
+checked. False positives: a `#` block inside a string or docstring, a 4+ line `# ----` banner, and
+in the diff form a newly added licence header (skip it by eye). The diff form misses a comment that *grew* past 3 lines (old lines are context): use the whole-file form.
+
+The block check counts **length only**. A 1-3 line comment that merely restates the code passes it,
+and is caught by the "Why-only" item in Tier 3. Docstring length has **no reliable grep**: a regex
+that pairs `"""` delimiters matched a closing delimiter with the next docstring's opening one (tested:
+two one-line docstrings with five code lines between them were reported as one block), so read the
+docstrings. "Docstring" here means any doc comment (Python `"""`, JSDoc `/** */`, Rust `///`).
 
 **The `plan-N`/`PR#`/`Slice` rows above share the same lack of comment-anchoring as the em-dash row
 did before the fix** — none of their regexes require a `#` prefix either. Verified: in this repo,
@@ -115,14 +163,23 @@ first (SQL keywords, HTTP/API/CMS-style acronyms, named constants), not from a g
   though it reads like a plain internal comment.
 - **The epistemic-marker trap** ("verified", "measured", "confirmed"): never strip on sight. Ask:
   is the sentence it modifies reconstructible by reading the code (safe to soften), or the *only
-  record* of an empirical/mutation-test result (must be kept)?
-- **Verbosity**: trim prose fat, never a distinct fact or caveat.
+  record* of an empirical/mutation-test result (must be kept, within the Comment budget's
+  3-line cap or in a test name or the PR description)?
+- **Why-only** (code comments and docstrings): for every changed comment ask *if I delete it, does a
+  reader of the code lose a reason?* If not, it is a finding, whatever its length: a 1-line comment
+  that restates the next line, a step-by-step narration, a comment that repeats a name. A comment
+  over 3 lines is a finding even when every sentence is true. Cite `file:line` and quote the line.
+- **Verbosity in documentation prose**: trim prose fat, never a distinct fact or caveat. (Code
+  comments follow the Comment budget, which is stricter.)
 
 ## How each role uses this
 
-- **`build`**: self-check Tier 1 against your own diff before handing back.
+- **`build`**: write to the Comment budget (default: no comment), and self-check Tier 1, including
+  the comment-block row, against your own diff before handing back.
 - **`build-audit` / `review` / `review-audit`**: run Tier 1 independently, walk Tier 2 and Tier 3
   against every changed comment, docstring, or documentation file, cite `file:line` + checklist item.
+  Every comment over the budget or not why-only is an objection (`build-audit`) or a nit finding
+  (`review`); `review-audit` lists one the review missed under *Missed by the review*.
 - **`plan` / `plan-audit`**: Tier 3 only — no code comments in a plan document, so Tier 1's
   mechanical greps and Tier 2's spelling/ALL-CAPS lists don't apply. `plan` self-checks Tier 3
   against its own document before handing back; `plan-audit` walks Tier 3 independently.

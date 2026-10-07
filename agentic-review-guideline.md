@@ -47,7 +47,8 @@ Post exactly ONE pull request comment, in this structure and nothing else:
 - Nothing outside that structure: no preamble, no restatement of the diff, no closing remarks, no
   extra headings.
 - Never drop, merge or shorten a finding to make the comment smaller. The table has no length
-  limit, and the evidence inside `<details>` has none either — fold it, never trim it.
+  limit, and the evidence inside `<details>` has none either — fold it, never trim it. The one
+  exception is verbose comments (`core/roles/review.md`): one "(nit)" finding per file, listing its lines.
 - Record what you ran, what it showed, and — where you could not verify something — why, and what
   you did instead. Nothing beyond that: no quoting error text, no restating instructions you were
   already given, no arguing that you complied. Those three are what make an evidence block long,
