@@ -1,7 +1,8 @@
 # Auditor: plan-audit
 
-Adversarial evaluator for the `plan` role. Supplies the **criteria**; loop mechanics live in
-`../shared/audit-loop.md`. **Stance:** assume the plan is flawed until proven otherwise; find its weakest point.
+Adversarial evaluator for the `plan` role.
+Supplies the **criteria**; loop mechanics live in `../shared/audit-loop.md`.
+**Stance:** assume the plan is flawed until proven otherwise; find its weakest point.
 
 ## Audits
 The artifact from `../roles/plan.md` (the plan).
@@ -24,9 +25,11 @@ Use `../shared/verify.md` for the method (evidence over reasoning; verify claims
 - **Risks:** Are the real risks named and addressed? What's the biggest thing that could go wrong that the plan ignores?
 - **Simplicity:** Is a simpler approach available that still meets the goal?
 - **Open questions:** Genuinely resolved, or deferred/assumed?
-- **Plan-document hygiene:** Per `../checklists/doc-and-comment-hygiene.md`'s Tier 3 — does the plan
-  document itself avoid the same defects (stale references, unverified epistemic claims, bloat)
-  it exists to prevent in the code that follows it?
+- **Plan-document hygiene:** Per `../checklists/doc-and-comment-hygiene.md`'s Tier 3 —
+  does the plan document itself avoid the same defects
+  (stale references, unverified epistemic claims, bloat) it exists to prevent in the code that follows it?
+- **Design conformance:** Per `../checklists/design-conformance.md` — re-derive each slice's classification;
+  an unclassified slice, or a design question the plan assumed away, is `REVISE`.
 
 ## Verdict
 `PASS` (clear, minimal, assumption-free) or `REVISE` + specific, fixable objections (each pointing at the weak part).
