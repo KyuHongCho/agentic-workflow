@@ -94,7 +94,8 @@ with the next docstring's opening one, so read the docstrings.
 "Docstring" here means any doc comment (Python `"""`, JSDoc `/** */`, Rust `///`).
 
 **The `plan-N`/`PR#`/`Slice` rows are not comment-anchored** — none of their regexes requires a `#` prefix,
-so a hit outside a comment (e.g. in a string literal or a YAML block scalar) is not a finding.
+so a hit outside a comment (e.g. in a string literal or a YAML block scalar) is not a finding;
+in `.md` prose, which has no comment syntax, every hit counts.
 Scope the check to comments or to changed lines, and read each hit.
 
 **"clause N"** (`grep -nE '\bclause [0-9]+\b'`) is **flag-only**: might be defined nearby.
@@ -120,14 +121,14 @@ Read a sample of the target repo's own comments before applying this row at all.
 
 ## Tier 2 — flag-only, curated list required (do NOT ship a generic suffix pattern)
 
-**US-spelling** and **ALL-CAPS emphasis** checks are real, but a generic pattern for them fails:
+**US-spelling** and **ALL-CAPS emphasis** checks are real, but a generic pattern for them broke twice under testing:
 - A `[sz]`-wildcard spelling pattern flags `optimisation`/`tokeniser`/`initialised` —
   all **correct UK spelling** — as errors.
 - A tightened `-iz-`-only pattern flags `synchronize`/`finalize` inside a GitHub Actions workflow file,
   where those are the **literal, unrespellable event/job-name vocabulary**, not prose,
   plus non-dual-spelling words like `oversized`/`sized` that happen to contain "iz".
 
-**What works:** a finite, explicitly-named list of known dual-spelling roots
+**What works (tested clean on the cases above):** a finite, explicitly-named list of known dual-spelling roots
 (`normali-`, `optimi-`, `tokeni-`, `initiali-`, `seriali-`, `categori-`, `prioriti-`,
 `summari-`, `characteri-`, `emphasi-`, `minimi-`, `maximi-`, `critici-`, `apologi-`, `customi-`,
 `reali-`, `recogni-`, `utili-` + `z\w*`), **excluding anything inside a backtick code span**
@@ -151,7 +152,7 @@ is lower-precision for the same reason — build the allowlist from what's actua
   is broken even though the target file is real.
 - **Cross-file `file:line` citations**: a citation can point at a range that *exists*
   and is *superficially relevant* while still misdirecting a reader — a pure existence check is not enough
-  (e.g. a citation to a 3-line range that included the right decorator only at its very edge,
+  (an observed case: a citation to a 3-line range that included the right decorator only at its very edge,
   while the citation's own justifying words matched two *different*, uncited lines).
   Read both ends and compare meaning, don't just check the range resolves.
 - **Deduplicating a repeated explanation**: check whether the "duplicate" is independently required first —

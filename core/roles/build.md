@@ -24,7 +24,7 @@
    an invented requirement — invoke `../shared/grilling.md` and ask the human before writing code.
    Do not start building to find out.
    If the repo has a root `DESIGN.md`, read it in full here too
-   and apply `../checklists/design-conformance.md` to this slice, before any code.
+   and classify this slice per `../checklists/design-conformance.md`, before any code.
 1. Take the next slice from the **frontier** (all blockers done) and implement it **end-to-end**, per `../shared/vertical-slices.md`. One slice at a time — each slice gets its own `build-audit`.
 2. Add/adjust tests; run them.
 3. Keep changes minimal and reversible; match existing style — **except comments**:
@@ -52,6 +52,8 @@ The **code changes + evidence** they work (test output, run output).
   including the comment-block row; delete a comment rather than trim it when the code already says it
   (directives, shebang/encoding lines, licence headers and generated files stay).
   A hit you cannot justify is a bug in your own work.
+- **If the slice is design-classified, run Tier 1 and walk Tier 2 of `../checklists/design-conformance.md`
+  on your own diff before handing back.**
 - **When a step is ambiguous, a decision is unspecified, or reality contradicts the plan → invoke `../shared/grilling.md`.**
   Don't guess.
   This is the same gate as step 0, later: step 0 is the deliberate up-front pass

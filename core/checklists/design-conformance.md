@@ -43,9 +43,9 @@ It blocks like a violation, and is settled only by a change in the PR — to `DE
 or to the code so the question no longer arises; a reply in a comment does not settle it.
 
 ## In a CI comment
-Two evidence items: `read DESIGN.md — design: §<n>, §<m>`
-and `rule walk — <n> met, <n> violated, <n> n/a, <n> unverified`.
-A review prints them as two `**Ran:**` entries.
+Evidence: `read DESIGN.md — design: §<n>, §<m>` (or `design: none — <reason>`)
+and, unless the classification is `design: none`, `rule walk — <n> met, <n> violated, <n> n/a, <n> unverified`.
+A review prints each as a `**Ran:**` entry.
 An audit prints them on its `**Blind pass:**` line, as its own Pass 1 result, not the review's.
 Each violation and design question is a finding; the per-rule list is not printed.
 
@@ -58,11 +58,11 @@ Each violation and design question is a finding; the per-rule list is not printe
 - **`build-audit`**: run Tier 1 yourself, re-derive the classification from the diff,
   walk Tier 2 independently.
 - **`review`**: all three tiers on the diff, rendering the changed screen per `../roles/review.md` step 3.
-  In CI, print both § *In a CI comment* entries under **Ran:**.
+  In CI, print the § *In a CI comment* entries under **Ran:**.
 - **`review-audit`**: classify and walk Tier 2 in Pass 1, before reading the review.
   A violation or design question the review missed, or one it marked a nit,
   goes under **Missed by the review** and makes the audit `REVISE`.
-  In CI, print both § *In a CI comment* items on the **Blind pass:** line,
+  In CI, print the § *In a CI comment* items on the **Blind pass:** line,
   as your own classification and count, not the review's.
 
 ## Loop

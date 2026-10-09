@@ -50,7 +50,7 @@ Mark what you could not reproduce as **unverified**; a run that exhausts its tur
   before reading the review.
   A violation or design question the review missed, or marked a nit, goes under **Missed by the review**
   and makes the audit `REVISE`.
-  In CI, print both § *In a CI comment* items on the **Blind pass:** line,
+  In CI, print the § *In a CI comment* items on the **Blind pass:** line,
   as your own classification and count, not the review's.
 - **Intent:** Do any findings rest on unstated intent rather than the agreed criteria?
 
