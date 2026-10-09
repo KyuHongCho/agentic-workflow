@@ -24,13 +24,15 @@ Use `../shared/verify.md` for the method — including **creating a throwaway te
 - **Minimal & reversible:** Are changes as small as possible and safe to revert?
 - **Correctness & safety:** Edge cases, error handling, security, secrets.
 - **Evidence:** Is "it works" backed by real run/test output?
-- **Comment hygiene:** Per `../checklists/doc-and-comment-hygiene.md` — run Tier 1 yourself (don't trust
-  the build's self-check), and walk Tiers 2-3 against every changed comment, docstring, or
-  documentation file.
-- **Comment budget:** `REVISE` on an added comment or docstring that is not why-only or runs over 3
-  lines: one objection per file, listing `file:line` verbatim and the shorter form or "delete". Exempt:
-  directives, shebang/encoding lines, licence headers, generated files. A green test run does not excuse
-  one; a justified-in-writing exception is accepted.
+- **Comment hygiene:** Per `../checklists/doc-and-comment-hygiene.md` — run Tier 1 yourself
+  (don't trust the build's self-check), and walk Tiers 2-3 against every changed comment, docstring,
+  or documentation file.
+- **Comment budget:** `REVISE` on an added comment or docstring that is not why-only or runs over 3 lines:
+  one objection per file, listing `file:line` verbatim and the shorter form or "delete".
+  Exempt: directives, shebang/encoding lines, licence headers, generated files.
+  A green test run does not excuse one; a justified-in-writing exception is accepted.
+- **Design conformance:** Per `../checklists/design-conformance.md` — run Tier 1 yourself,
+  re-derive the classification from the diff, walk Tier 2 independently; a violation is an objection.
 
 ## Verdict
 `PASS` or `REVISE` + specific objections (each with the file/behaviour at fault).
