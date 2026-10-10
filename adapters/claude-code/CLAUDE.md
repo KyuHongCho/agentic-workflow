@@ -115,7 +115,7 @@ never edit a ledger file yourself.
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (59/59)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (74/74)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
@@ -162,7 +162,19 @@ releases the gate.
 
 **This gate fails OPEN if either script is missing** — a broken `.claude/hooks` symlink makes the
 hook exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (49/49)`.
+`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (68/68)`.
+
+### Stale state from other sessions
+`/clear` and `--fork-session` give the conversation a new session id, so the old id's ledger and gate stay behind under `.agentic/<old id>/`.
+A `SessionStart` hook (`.claude/hooks/session-start-warn.sh`) prints one line at `startup`, `clear` and `resume` when another session's folder holds audit debt or a blocked gate, or the legacy `.audit-pending` or `.gate` do.
+It is silent on `/compact` (the id does not change) and when nothing is left by another session, and it never blocks, moves, adopts or deletes anything.
+If you see that line, tell the human and name `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear` (lists debt with its age) and `.../bin/unblock` (lists blocked gates with their age); do not touch those files yourself.
+The warning cannot tell a finished session from one running now, so the human checks before clearing anything.
+The human removes folders that hold nothing with `bin/audit-clear --prune [days]` (default 14, at most 99999).
+Prune deletes only a folder with an empty or absent ledger, no blocked gate and no change for at least that many days, and never the legacy files.
+Prune refuses when `.agentic` is itself a symlink.
+A session that writes a ledger in the milliseconds between prune checking a folder and deleting it can lose that entry, which is why only idle folders qualify.
+Nothing prunes automatically.
 
 ## Hard-enforced shipping gate (Claude Code only)
 Publishing is **not** a stage — see `$AGENTIC_WORKFLOW_HOME/core/shared/shipping.md`. A `PreToolUse`

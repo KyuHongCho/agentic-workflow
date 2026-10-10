@@ -21,8 +21,8 @@ else
   ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
   [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n.agentic/\n' >> .git/info/exclude
   bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (14/14)
-  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (49/49)
-  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (59/59)
+  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (68/68)
+  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (74/74)
 fi
 ```
 
@@ -35,3 +35,16 @@ gates every repo beneath it, because the gate reads only the command, not the wo
 The self-tests prove the scripts work — **not** that they are wired. It cannot see how Claude
 Code was launched. If the gate seems silent, check that `.claude/settings.json` exists in the directory
 you started in.
+
+## Stale state
+
+Each session keeps its audit ledger and grilling gate under `.agentic/<session_id>/`.
+`/clear` and `--fork-session` start a new session id and leave the old id's folder behind.
+A `SessionStart` hook (`session-start-warn.sh`, registered by the same `settings.json`) prints one line at `startup`, `clear` and `resume` when another session's folder holds audit debt or a blocked gate, or the legacy `.audit-pending` or `.gate` do.
+It cannot tell a finished session from one running now, so check before clearing anything.
+It only warns: it never blocks, moves, adopts or deletes anything.
+List what is owed with `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear`, and what is blocked with `.../bin/unblock`; both show an age for each entry.
+Remove folders that hold nothing with `bin/audit-clear --prune [days]` (default 14, at most 99999).
+Prune refuses when `.agentic` is itself a symlink.
+Prune deletes only a folder with an empty or absent ledger, no blocked gate, and no change for at least that many days.
+It never touches a folder with debt or a blocked gate, nor the legacy files, and nothing prunes automatically.

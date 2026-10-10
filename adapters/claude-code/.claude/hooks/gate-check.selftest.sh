@@ -76,7 +76,7 @@ clearcheck () {
                printf 'status: blocked\n# Q1\n# Q2\n' > "$D/.gate" ;;
     twice)     printf 'status: blocked\n# Q1\n' > "$D/.gate"
                printf '%s' "$P" | CLAUDE_PROJECT_DIR="$D" bash "$HOOK" >/dev/null 2>&1
-               CLAUDE_PROJECT_DIR="$D" bash "$CLEAR" ;;
+               CLAUDE_PROJECT_DIR="$D" bash "$CLEAR" </dev/null ;;
   esac
   CLAUDE_PROJECT_DIR="$D" bash "$CLEAR" </dev/null
   got=$(grep -vE '^[[:space:]]*#' "$D/.gate" | grep -oE 'status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')
@@ -222,4 +222,79 @@ ub >/dev/null
 ck "unblock vs legacy file as before: record + receipt" "done|1|1|no" "$(state "$D/.gate")|$(grep -c '^# L1' "$D/.gate")|$(grep -c 'released by hand via bin/unblock' "$D/.gate")|$([ -f "$D/.gate-asked" ] && echo yes || echo no)"
 rm -rf "$D"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (49/49)"; else echo "$fails FAILURE(S) — you do not have a working grilling gate"; exit 1; fi
+# bin/unblock lists an age beside each blocked gate (touch -t: portable; 2020 is long ago).
+D=$(mktemp -d); gate_at sOld 'status: blocked\n# QO\n'; gate_at sNew 'status: blocked\n# QN\n'; touch -t 202001010000 "$D/.agentic/sOld/gate"
+out=$(ub 2>&1)
+ck "unblock listing: an age beside each blocked gate"   "1|1" "$(printf '%s\n' "$out" | grep -cE '^session sOld  \(.*\)  age [0-9]+d$')|$(printf '%s\n' "$out" | grep -cE '^session sNew  \(.*\)  age <1d$')"
+rm -rf "$D"
+
+# SessionStart: warns about OTHER sessions' leftovers (after /clear or --fork-session), never writes.
+SS="$DIR/session-start-warn.sh"
+[ -f "$SS" ] || { echo "FAIL: $SS does not exist. Orphaned state will not be announced."; exit 1; }
+ssp () { python3 -c 'import json,sys; d={"hook_event_name":"SessionStart"}
+if sys.argv[1]: d["session_id"]=sys.argv[1]
+if sys.argv[2]: d["source"]=sys.argv[2]
+print(json.dumps(d))' "$1" "$2"; }
+ss () {   # $1 project dir | $2 session id | $3 source | optional $4 hooks dir; prints stdout
+  ssp "$2" "$3" | CLAUDE_PROJECT_DIR="$1" bash "${4:-$DIR}/session-start-warn.sh" 2>"$1.err"; echo "rc=$?"
+}
+nlines () { printf '%s\n' "$1" | grep -vc '^rc=0$'; }   # output lines other than the rc marker
+debt_at () { mkdir -p "$D/.agentic/$1"; printf 'build\tA1\tT\n' > "$D/.agentic/$1/audit-pending"; }
+tree () { (cd "$1" && find . | LC_ALL=C sort | while read -r f; do [ -f "$f" ] && cksum < "$f"; echo "$f"; done | cksum); }
+
+D=$(mktemp -d); debt_at sB; before=$(tree "$D")
+out=$(ss "$D" sA clear)
+ck "orphan debt after /clear: exactly one line"         1 "$(nlines "$out")"
+ck "...it is valid JSON naming both tools, to model and user" "ok" "$(printf '%s\n' "$out" | grep -v '^rc=' | python3 -c '
+import sys,json; d=json.load(sys.stdin); m=d["hookSpecificOutput"]["additionalContext"]
+print("ok" if d["systemMessage"]==m and d["hookSpecificOutput"]["hookEventName"]=="SessionStart" and "bin/audit-clear" in m and "bin/unblock" in m and "1 with audit debt" in m else "bad")' 2>&1)"
+ck "...and rc=0, stderr empty, the tree is unchanged"   "rc=0|0|$before" "$(printf '%s\n' "$out" | grep '^rc=')|$(wc -c < "$D.err" | tr -d ' ')|$(tree "$D")"
+ck "startup, resume, fork: all warn"                    "1 1 1" "$(nlines "$(ss "$D" sA startup)") $(nlines "$(ss "$D" sA resume)") $(nlines "$(ss "$D" sA '')")"
+ck "source=compact: silent even with an orphan"         "rc=0" "$(ss "$D" sA compact)"
+rm -rf "$D" "$D.err"
+
+D=$(mktemp -d); gate_at sB 'status: blocked\n# Q\n'
+ck "orphan blocked gate alone: one line, says 1 gate"   "1|1" "$(nlines "$(ss "$D" sA clear)")|$(ss "$D" sA clear | grep -c '1 with a blocked gate')"
+rm -rf "$D" "$D.err"
+D=$(mktemp -d); printf 'status: blocked\n# L\n' > "$D/.gate"
+ck "legacy blocked .gate: one line naming the legacy files" "1|1" "$(nlines "$(ss "$D" sA clear)")|$(ss "$D" sA clear | grep -c 'legacy files hold blocked gate')"
+rm -rf "$D" "$D.err"
+D=$(mktemp -d); printf 'build\tL1\tT\n' > "$D/.audit-pending"
+ck "legacy .audit-pending: one line naming the legacy files" "1|1" "$(nlines "$(ss "$D" sA clear)")|$(ss "$D" sA clear | grep -c 'legacy files hold audit debt')"
+rm -rf "$D" "$D.err"
+
+D=$(mktemp -d); debt_at sA; gate_at sA 'status: blocked\n# Q\n'
+ck "only this session's own state: silent"              "rc=0" "$(ss "$D" sA startup)"
+rm -rf "$D" "$D.err"
+D=$(mktemp -d); mkdir -p "$D/.agentic/sB"; : > "$D/.agentic/sB/audit-pending"; gate_at sC 'status: done\n# was "status: blocked"\n'; printf 'status: done\n' > "$D/.gate"; : > "$D/.audit-pending"
+ck "empty ledger, done gates, legacy done/empty: silent" "rc=0" "$(ss "$D" sA startup)"
+rm -rf "$D" "$D.err"
+D=$(mktemp -d)
+ck "no .agentic and no legacy files: silent"            "rc=0" "$(ss "$D" sA startup)"
+ck "unreadable payload: no crash, rc=0"                 "rc=0" "$(printf 'not json' | CLAUDE_PROJECT_DIR="$D" bash "$SS" 2>/dev/null; echo "rc=$?")"
+rm -rf "$D" "$D.err"
+D=$(mktemp -d); debt_at sA
+ck "an unusable id counts as no id: every folder is foreign" 1 "$(nlines "$(ss "$D" '../sA' startup)")"
+rm -rf "$D" "$D.err"
+D=$(mktemp -d); printf 'build\tL1\tT\n' > "$D/.audit-pending"
+m=$(ss "$D" sA clear | grep -v '^rc=')
+ck "legacy-only: no '0 with' noise; full tool path"      "0|1|1" "$(printf '%s' "$m" | grep -c ' 0 with')|$(printf '%s' "$m" | grep -c 'AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear')|$(printf '%s' "$m" | grep -c 'AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/unblock')"
+rm -rf "$D" "$D.err"
+
+# Fallback, chosen and documented in the script: with the helper rejected there is no own session to
+# exclude, so every folder under .agentic counts as foreign. It still warns, never builds a bogus path.
+for v in missing truncated syntax; do
+  D=$(mktemp -d); T=$(mktemp -d); cp "$SS" "$T/"; debt_at sA; before=$(tree "$D")
+  case "$v" in
+    truncated) printf 'sid_dir() { printf "%%s" /nonexistent-bogus; }\n' > "$T/session-state.sh" ;;
+    syntax)    printf 'sid_dir() { printf "%%s" /nonexistent-bogus; }\nif then fi )(\nAGENTIC_SS_LOADED=1\n' > "$T/session-state.sh" ;;
+  esac
+  out=$(ssp sA startup | AGENTIC_SS_LOADED=1 CLAUDE_PROJECT_DIR="$D" bash "$T/session-start-warn.sh" 2>"$D.err"; echo "rc=$?")
+  ck "helper $v: still warns once, no bogus path, no writes" "1|rc=0|0|$before" "$(nlines "$out")|$(printf '%s\n' "$out" | grep '^rc=')|$(printf '%s' "$out" | grep -c nonexistent-bogus)|$(tree "$D")"
+  rm -rf "$D" "$D.err" "$T"
+done
+D=$(mktemp -d); T=$(mktemp -d); cp "$SS" "$T/"; debt_at sA
+ck "helper missing + source=compact: still silent"      "rc=0" "$(ssp sA compact | CLAUDE_PROJECT_DIR="$D" bash "$T/session-start-warn.sh" 2>/dev/null; echo "rc=$?")"
+rm -rf "$D" "$D.err" "$T"
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (68/68)"; else echo "$fails FAILURE(S) — you do not have a working grilling gate"; exit 1; fi

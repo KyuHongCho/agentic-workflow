@@ -8,8 +8,54 @@
 # miscount. A LEGACY entry predating the metadata has no agent_id, so it is dropped by ROLE NAME
 # instead — those really are interchangeable bare names, and refusing to clear them would leave
 # hand-editing as the only exit.
+# `--prune [days]` (default 14) deletes session folders that hold nothing: see the block below.
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 LEGACY="$ROOT/.audit-pending"
+
+# `stat -c` is GNU, `stat -f` is BSD; GNU's `-f` means something else, so try GNU first.
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
+# Newest change anywhere in a session folder: rewriting a file in place does not touch the directory.
+newest() {
+  local m=0 t p
+  for p in "$1" "$1/audit-pending" "$1/gate" "$1/gate-asked"; do
+    [ -e "$p" ] || continue; t=$(mtime "$p"); [ "$t" -gt "$m" ] && m=$t
+  done
+  echo "$m"
+}
+age_of() {   # $1 mtime -> "3d" or "<1d"
+  local d=$(( ($(date +%s) - $1) / 86400 )); [ "$d" -ge 1 ] && echo "${d}d" || echo "<1d"
+}
+is_blocked() {
+  [ -f "$1" ] || return 1
+  [ "$(grep -vE '^[[:space:]]*#' "$1" | grep -oE '^[[:space:]]*status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')" = blocked ]
+}
+
+if [ "$1" = "--prune" ]; then
+  days=14; [ $# -ge 2 ] && days="$2"   # an explicit empty argument is bad input, not "default"
+  # At most 5 digits keeps days*86400 far from overflow, which would turn a huge threshold into "delete everything".
+  case "$days" in ''|*[!0-9]*|??????*) echo "--prune needs a whole number of days (0 to 99999), got: $days" >&2; exit 2 ;; esac
+  days=$((10#$days))   # a leading zero is not octal
+  [ ! -L "$ROOT/.agentic" ] || { echo "refusing to prune: $ROOT/.agentic is a symlink." >&2; exit 1; }
+  [ $# -le 2 ] || { echo "usage: $0 --prune [days]" >&2; exit 2; }
+  now=$(date +%s); removed=0; kept=0
+  # Only a folder that holds nothing owed (no debt, no blocked gate) and has sat untouched for at
+  # least <days> goes; the legacy files and anything unrecognised are never touched.
+  for d in "$ROOT"/.agentic/*/; do
+    d="${d%/}"; id="${d##*/}"
+    [ -d "$d" ] && [ ! -L "$d" ] || continue
+    case "$id" in *[!A-Za-z0-9_-]*) continue ;; esac
+    if [ -s "$d/audit-pending" ]; then why="has audit debt"
+    elif is_blocked "$d/gate"; then why="has a blocked gate"
+    elif [ -n "$(ls -A "$d" | grep -vxE 'audit-pending|gate|gate-asked')" ]; then why="holds files this tool does not know"
+    elif [ $(( now - $(newest "$d") )) -lt $(( days * 86400 )) ]; then why="only $(age_of "$(newest "$d")") old"
+    else why=""; fi
+    if [ -n "$why" ]; then echo "kept     $id  ($why)"; kept=$((kept+1)); continue; fi
+    rm -f "$d/audit-pending" "$d/gate" "$d/gate-asked"
+    if rmdir "$d" 2>/dev/null; then echo "removed  $id"; removed=$((removed+1)); else echo "kept     $id  (could not remove)"; kept=$((kept+1)); fi
+  done
+  echo "Pruned $removed, kept $kept (threshold ${days}d). Legacy .audit-pending and .gate are never pruned."
+  exit 0
+fi
 
 only=""
 if [ "$1" = "--session" ]; then
@@ -33,15 +79,23 @@ label () {
 
 owed=0
 for f in "${LEDGERS[@]}"; do [ -s "$f" ] && owed=1; done
-[ "$owed" = 1 ] || { echo "No outstanding audit debt under $ROOT."; exit 0; }
+# Sessions that owe no audit but still hold a blocked grilling gate: stale state the ledgers do not show.
+GATEONLY=()
+if [ -z "$only" ]; then
+  for g in "$ROOT"/.agentic/*/gate; do
+    d=${g%/gate}; is_blocked "$g" && [ ! -s "$d/audit-pending" ] && GATEONLY+=("$d")
+  done
+fi
+listing=0; { [ $# -eq 0 ] || [ -z "$1" ]; } && listing=1
+if [ "$owed" != 1 ] && { [ "$listing" != 1 ] || [ "${#GATEONLY[@]}" -eq 0 ]; }; then echo "No outstanding audit debt under $ROOT."; exit 0; fi
 
 # An empty argument is not an id: '$2==""' would match every legacy line, so treat it as "just list".
 if [ $# -eq 0 ] || [ -z "$1" ]; then
-  echo "Outstanding audit debt under $ROOT:"
+  [ "$owed" = 1 ] && echo "Outstanding audit debt under $ROOT:" || echo "No outstanding audit debt under $ROOT."
   legacy=0
   for f in "${LEDGERS[@]}"; do
     [ -s "$f" ] || continue
-    echo; echo "$(label "$f") — last modified $(date -u -r "$f" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+    echo; echo "$(label "$f") — last modified $(date -u -r "$f" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown) (age $(age_of "$(mtime "$f")"))"
     # '|| [ -n "$r" ]' so a final line with no trailing newline is still listed.
     while IFS="$(printf '\t')" read -r r id ts || [ -n "$r" ]; do
       [ -n "$r" ] || continue
@@ -49,6 +103,10 @@ if [ $# -eq 0 ] || [ -z "$1" ]; then
       else legacy=1; printf '  %-8s (no agent id: predates the metadata)\n' "$r"; fi
     done < "$f"
   done
+  for d in "${GATEONLY[@]}"; do
+    echo; echo "session ${d##*/} — no audit debt, but its grilling gate is BLOCKED (age $(age_of "$(newest "$d")")); release it with bin/unblock ${d##*/}"
+  done
+  [ "$owed" = 1 ] || exit 0
   echo; echo "Drop one with:  $0 <agent_id>"
   [ "$legacy" = 1 ] && echo "                $0 <role>          for an entry with no agent id"
   echo "Drop it only if that role handed back WITHOUT producing an artifact."

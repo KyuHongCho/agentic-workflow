@@ -13,6 +13,7 @@
 # A seventh thing, at the end of the file, is the per-session ledger.
 # It pins the isolation between sessions and every fallback around it.
 # An eighth, after it, is the per-session grilling gate those hooks stand down on.
+# A ninth, last, is bin/audit-clear's age column and --prune.
 #
 #   bash audit-gate.selftest.sh
 #
@@ -369,4 +370,73 @@ payload build A1 sA | CLAUDE_PROJECT_DIR="$D" bash "$T/audit-track.sh" >/dev/nul
 ck "helper missing: a per-session blocked gate is not read" "stop=2|legacy=2" "stop=$(stop_rc "$D" sA "$T")|legacy=$(lines_of "$D/.audit-pending")"
 rm -rf "$D" "$T"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (59/59)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi
+# Stale state is visible and prunable. Aging uses touch -t (portable); 2020 is far past any threshold.
+OLD=202001010000
+mk () {   # $1 session | $2 ledger contents, or NONE | $3 gate contents, or NONE | $4 old|new
+  mkdir -p "$D/.agentic/$1"
+  [ "$2" = NONE ] || printf '%b' "$2" > "$D/.agentic/$1/audit-pending"
+  [ "$3" = NONE ] || printf '%b' "$3" > "$D/.agentic/$1/gate"
+  if [ "$4" = old ]; then find "$D/.agentic/$1" -exec touch -t $OLD {} +; fi
+}
+survivors () { ls "$D/.agentic" 2>/dev/null | tr '\n' ' ' | sed 's/ *$//'; }
+D=$(mktemp -d)
+mk oldclean '' 'status: done\n' old; mk oldnoledger NONE 'status: done\n' old
+mk olddebt 'build\tA1\tT\n' 'status: done\n' old; mk oldblocked '' 'status: blocked\n# Q\n' old
+mk fresh '' 'status: done\n' new; mk foreign '' NONE old; : > "$D/.agentic/foreign/notes.txt"; touch -t $OLD "$D/.agentic/foreign/notes.txt" "$D/.agentic/foreign"
+printf 'plan\tL1\tT\n' > "$D/.audit-pending"; printf 'status: blocked\n' > "$D/.gate"; touch -t $OLD "$D/.audit-pending" "$D/.gate"
+sum_before=$(cat "$D/.agentic/olddebt/audit-pending" "$D/.agentic/oldblocked/gate" "$D/.audit-pending" "$D/.gate" | cksum)
+out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune 2>&1); rc=$?
+ck "prune: removes only the clean old folders"          "rc=0|foreign fresh oldblocked olddebt" "rc=$rc|$(survivors)"
+ck "prune: debt, blocked gate and legacy files intact"  "$sum_before" "$(cat "$D/.agentic/olddebt/audit-pending" "$D/.agentic/oldblocked/gate" "$D/.audit-pending" "$D/.gate" | cksum)"
+ck "prune: output says what went and why the rest stayed" "2|1|1|1|1" "$(printf '%s\n' "$out" | grep -cE '^removed  (oldclean|oldnoledger)$')|$(printf '%s' "$out" | grep -c 'kept     olddebt  (has audit debt)')|$(printf '%s' "$out" | grep -c 'kept     oldblocked  (has a blocked gate)')|$(printf '%s' "$out" | grep -c 'kept     fresh  (only <1d old)')|$(printf '%s' "$out" | grep -c 'kept     foreign  (holds files')"
+CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune 36500 >/dev/null 2>&1
+ck "prune: a huge threshold keeps everything"           "foreign fresh oldblocked olddebt" "$(survivors)"
+CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune 0 >/dev/null 2>&1
+ck "prune 0: also takes the fresh clean folder, nothing owed" "foreign oldblocked olddebt" "$(survivors)"
+bad=""; for a in abc -1 1.5 "" "1 2"; do
+  CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune "$a" >/dev/null 2>&1; bad="$bad$?"
+done
+CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune 5 6 >/dev/null 2>&1; bad="$bad$?"
+ck "prune: bad days rejected (rc=2), tree untouched"    "222222|foreign oldblocked olddebt" "$bad|$(survivors)"
+rm -rf "$D"
+# Folders prune must not follow or delete: a symlink to a clean old folder, and names that are not session ids.
+D=$(mktemp -d); E=$(mktemp -d); mkdir -p "$E/target" "$D/.agentic/real" "$D/.agentic/sp ace" "$D/.agentic/gl*ob"
+printf 'x' > "$E/target/gate"; ln -s "$E/target" "$D/.agentic/link"
+find "$D/.agentic" "$E" -exec touch -h -t $OLD {} + 2>/dev/null
+CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune >/dev/null 2>&1
+ck "prune: follows no symlink, skips non-id names"      "gl*ob link sp ace|yes" "$(ls "$D/.agentic" | tr '\n' ' ' | sed 's/ *$//' | sed 's/^\(gl\*ob link sp ace\).*/\1/')|$([ -f "$E/target/gate" ] && echo yes || echo no)"
+rm -rf "$D" "$E"
+# days: a huge value must keep, not wrap around and delete; a leading zero is decimal, not octal.
+D=$(mktemp -d); mk recent '' 'status: done\n' new; mk aged '' 'status: done\n' old
+r=""; for a in 999999999999999 9223372036854775807 100000; do
+  CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune "$a" >/dev/null 2>&1; r="$r$?"; done
+ck "prune: huge days rejected (rc=2), nothing removed"   "222|aged recent" "$r|$(survivors)"
+out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune 09 2>&1); rc=$?
+ck "prune 09: decimal 9 days, not an octal error"        "rc=0|aged removed, recent kept" "rc=$rc|$(printf '%s' "$out" | grep -c '^removed  aged$' | sed 's/1/aged removed/')$(printf '%s' "$out" | grep -q '^kept     recent' && echo ', recent kept')"
+rm -rf "$D"
+D=$(mktemp -d); E=$(mktemp -d); mkdir -p "$E/abc"; ln -s "$E" "$D/.agentic"; find "$E" -exec touch -t $OLD {} +
+CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune >/dev/null 2>&1; rc=$?
+ck "prune: refuses when .agentic is a symlink"           "rc=1|abc" "rc=$rc|$(ls "$E")"
+rm -rf "$D" "$E"
+D=$(mktemp -d); CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" --prune >/dev/null 2>&1; rc=$?
+ck "prune: no .agentic at all is rc=0, creates nothing" "0|" "$rc|$(ls -A "$D")"
+rm -rf "$D"
+
+D=$(mktemp -d); mk sOld 'build\tA1\tT\n' NONE old; mk sNew 'review\tB1\tT\n' NONE new
+out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" 2>&1)
+ck "audit-clear listing: an age on every ledger"        "1|1" "$(printf '%s\n' "$out" | grep -cE '^session sOld .*\(age [0-9]+d\)$')|$(printf '%s\n' "$out" | grep -cE '^session sNew .*\(age <1d\)$')"
+rm -rf "$D"
+D=$(mktemp -d); mk sDebt 'build\tA1\tT\n' 'status: blocked\n# Q\n' new; mk sGate '' 'status: blocked\n# Q\n' old; mk sDone '' 'status: done\n' old
+out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" 2>&1); rc=$?
+ck "listing flags a blocked gate with no debt, with age" "rc=0|1|1|0" "rc=$rc|$(printf '%s\n' "$out" | grep -cE '^session sGate .*BLOCKED \(age [0-9]+d\).*bin/unblock sGate')|$(printf '%s' "$out" | grep -c 'agent A1')|$(printf '%s' "$out" | grep -c 'sDone\|BLOCKED.*sDebt\|session sDebt .*no audit debt')"
+rm -rf "$D"
+D=$(mktemp -d); mk sGate '' 'status: blocked\n# Q\n' old
+out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" 2>&1); rc=$?
+ck "blocked gate and no debt anywhere: still listed"    "rc=0|1|0" "rc=$rc|$(printf '%s' "$out" | grep -c 'session sGate .*BLOCKED')|$(printf '%s' "$out" | grep -c 'Drop one with')"
+rm -rf "$D"
+D=$(mktemp -d); mk sDone '' 'status: done\n' old
+out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" 2>&1)
+ck "nothing owed and nothing blocked: the old message"  "No outstanding audit debt under $D." "$out"
+rm -rf "$D"
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (74/74)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi

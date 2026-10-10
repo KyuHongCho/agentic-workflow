@@ -15,6 +15,12 @@ is_blocked() {
   [ "$(grep -vE '^[[:space:]]*#' "$1" | grep -oE '^[[:space:]]*status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')" = blocked ]
 }
 
+# `stat -c` is GNU, `stat -f` is BSD; GNU's `-f` means something else, so try GNU first.
+age_of() {   # $1 file -> "3d" or "<1d"
+  local m d; m=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0)
+  d=$(( ($(date +%s) - m) / 86400 )); [ "$d" -ge 1 ] && echo "${d}d" || echo "<1d"
+}
+
 # Keep the '#' question lines, exactly as gate-clear.sh does on the prompt path: the two release
 # paths must leave the same record of what was released, or the audit trail depends on which one
 # happened to be used.
@@ -39,7 +45,7 @@ done
 list() {
   local e
   for e in "${blocked[@]}"; do
-    echo "${e%%	*}  (${e#*	})"
+    echo "${e%%	*}  (${e#*	})  age $(age_of "${e#*	}")"
     grep -E '^[[:space:]]*#' "${e#*	}" | sed 's/^/    /'
   done
 }

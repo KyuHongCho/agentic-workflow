@@ -83,7 +83,8 @@ tool = d.get("tool_name") or ""
 if mode in ("bypassPermissions", "dontAsk") or (mode == "acceptEdits" and tool in ("Write", "Edit")):
     sys.stderr.write("Blocked: the grilling gate is set and permission_mode is '{m}', so no prompt "
                      "would be shown for {t} - and an unshown prompt is not an answer. Ask the "
-                     "human in the conversation; they release it with bin/unblock.\n"
+                     "human in the conversation; they release it with bin/unblock (name it as "
+                     "'unblock <session_id>' when several gates are blocked).\n"
                      "Open questions:\n{q}\n".format(m=mode, t=tool or "this tool", q=q))
     sys.exit(2)
 
