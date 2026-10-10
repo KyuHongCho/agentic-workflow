@@ -88,22 +88,34 @@ escalated without a `PASS`, write nothing. Writing it is not shipping: it commit
 
 ## Hard-enforced audit gate (Claude Code only)
 A `SubagentStop` hook (`.claude/hooks/audit-track.sh`) records which roles have run and which audits are
-still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/hooks/audit-gate.sh`)
-**refuses to let the turn end** while any audit is outstanding. You cannot skip the loop by forgetting it.
+still owed, in a ledger per session: `${CLAUDE_PROJECT_DIR}/.agentic/<session_id>/audit-pending`.
+A `Stop` hook (`.claude/hooks/audit-gate.sh`)
+**refuses to let the turn end** while any audit is outstanding in *this session's* ledger.
+You cannot skip the loop by forgetting it.
+
+Sessions do not share debt.
+Another session's unaudited role does not block your Stop, and its auditor cannot clear yours.
+A payload with no usable `session_id` uses the shared legacy `${CLAUDE_PROJECT_DIR}/.audit-pending`, as before.
+A Stop payload with no usable id enforces the legacy file and every session's ledger, to stay safe.
+`audit-clear <agent_id>` is then the only exit from a ledger that belongs to another session.
+**Upgrade note:** a legacy `.audit-pending` is no longer enforced for a session that carries an id,
+so debt outstanding when you upgrade stops being enforced; `audit-clear` still lists it.
+The helper `.claude/hooks/session-state.sh` holds the session-id check and paths; if it is missing or broken, both hooks fall back to the legacy file.
 
 The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
 and auditors could not run anyway (their `Bash`/`Edit` would be gated). Whether a role that self-blocks on
 grilling records a debt depends on `.gate` when its `SubagentStop` fires, so a leftover entry is still
 possible — but every entry now names its role, the `agent_id` that recorded it and the UTC time, so you can
 say *which* hand-back it came from and whether an artifact exists behind it. If none does, say so and ask
-the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`; never edit
-`.audit-pending` yourself.
+the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`
+(no session argument needed: it lists debt per session, legacy first, and drops the entry from whichever ledger holds it);
+never edit a ledger file yourself.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (30/30)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (51/51)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates

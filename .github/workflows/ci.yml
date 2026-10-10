@@ -17,7 +17,7 @@ jobs:
         # non-zero at load time, which for gate-check/ship-gate means the gate
         # silently fails OPEN — so this is a real safety check, not lint.
         run: |
-          for f in $(git ls-files '*.sh') adapters/claude-code/bin/unblock; do
+          for f in $(git ls-files '*.sh') adapters/claude-code/bin/unblock adapters/claude-code/bin/audit-clear; do
             bash -n "$f"
           done
 
@@ -37,7 +37,7 @@ jobs:
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
 
       - name: audit-gate self-test
-        # 30 cases: the .gate parse both hooks share, a subagent's own report
+        # 51 cases: the .gate parse both hooks share, a subagent's own report
         # never acting as control, where the suppression branch sits, and a
         # fourth set driving inputs the others never reach (a non-build role,
         # its auditor, a two-entry ledger, an absent .gate, a nested
@@ -48,4 +48,7 @@ jobs:
         # tells a resumed role from a second slice, the gate message still naming an entry whose
         # ledger line has no trailing newline, and the UTC stamp each entry promises; and
         # bin/audit-clear, the only sanctioned way to retire a debt without an audit.
+        # The last 21 pin the per-session ledgers: isolation between two sessions, the
+        # fallbacks for a missing id and for a missing or broken session-state.sh, and
+        # audit-clear across sessions.
         run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh

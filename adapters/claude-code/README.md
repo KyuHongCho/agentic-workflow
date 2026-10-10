@@ -19,10 +19,10 @@ else
   ln -s "$ADP/.claude/skills"        .claude/skills
   ln -s "$ADP/agents"                .claude/agents    # agents sits BESIDE .claude, not inside it
   ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
-  [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n' >> .git/info/exclude
+  [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n.agentic/\n' >> .git/info/exclude
   bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (14/14)
   bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (18/18)
-  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (30/30)
+  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (51/51)
 fi
 ```
 
