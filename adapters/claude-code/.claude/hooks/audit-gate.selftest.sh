@@ -12,6 +12,7 @@
 #
 # A seventh thing, at the end of the file, is the per-session ledger.
 # It pins the isolation between sessions and every fallback around it.
+# An eighth, after it, is the per-session grilling gate those hooks stand down on.
 #
 #   bash audit-gate.selftest.sh
 #
@@ -328,4 +329,44 @@ CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" build >/dev/null 2>&1; rc=$?
 ck "audit-clear <role> skips bare lines in session ledgers" "rc=1|1" "rc=$rc|$(lines_of "$D/.agentic/sC/audit-pending")"
 rm -rf "$D"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (51/51)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi
+
+# The grilling gate is per session too (.agentic/<session_id>/gate): a session's blocked gate stands down
+# its own Stop and does not suppress its own auditor, but never another session's debt or Stop.
+gate_for () { mkdir -p "$D/.agentic/$1"; printf '%b' "$2" > "$D/.agentic/$1/gate"; }
+ledger_of () { [ -f "$1" ] && cut -f1 < "$1" | tr '\n' ' ' | sed 's/ *$//' || echo none; }
+
+D=$(mktemp -d)
+payload build A1 sA | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+payload build B1 sB | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+gate_for sA 'status: blocked\n# Q1\n'
+ck "A's blocked gate stands down A's own Stop"          0 "$(stop_rc "$D" sA)"
+ck "A's blocked gate does not stand down B's Stop"      2 "$(stop_rc "$D" sB)"
+payload build A2 sA | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+payload build B2 sB | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+ck "A blocked: A's role records none, B's build records debt" "build|build build" "$(ledger_of "$D/.agentic/sA/audit-pending")|$(ledger_of "$D/.agentic/sB/audit-pending")"
+payload build-audit B9 sB | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+payload build-audit A9 sA | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+ck "A blocked: each auditor still clears its own ledger" "none|build" "$(ledger_of "$D/.agentic/sA/audit-pending")|$(ledger_of "$D/.agentic/sB/audit-pending")"
+rm -rf "$D"
+
+D=$(mktemp -d); printf 'status: blocked\n# L1\n' > "$D/.gate"
+payload build A1 sA | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+ck "legacy blocked .gate: an id'd session's role records none" none "$(lines_of "$D/.agentic/sA/audit-pending")"
+mkdir -p "$D/.agentic/sA"; printf 'build\tA1\tT\n' > "$D/.agentic/sA/audit-pending"
+ck "legacy blocked .gate stands down an id'd session's Stop"  0 "$(stop_rc "$D" sA)"
+rm -rf "$D"
+
+D=$(mktemp -d); mkdir -p "$D/.agentic/sA"; printf 'build\tA1\tT\n' > "$D/.agentic/sA/audit-pending"
+gate_for sA 'status: done\n# Q1 keep "status: blocked"?\n'
+ck "A's done gate (question quotes the phrase) does not stand down" 2 "$(stop_rc "$D" sA)"
+rm -rf "$D"
+
+# With the helper rejected both hooks are legacy-only: a per-session gate is not read, so it neither
+# stands the Stop down nor suppresses a role's debt.
+D=$(mktemp -d); T=$(mktemp -d); cp "$AGATE" "$ATRACK" "$T/"
+printf 'build\tL1\tT\n' > "$D/.audit-pending"; gate_for sA 'status: blocked\n'
+payload build A1 sA | CLAUDE_PROJECT_DIR="$D" bash "$T/audit-track.sh" >/dev/null 2>&1
+ck "helper missing: a per-session blocked gate is not read" "stop=2|legacy=2" "stop=$(stop_rc "$D" sA "$T")|legacy=$(lines_of "$D/.audit-pending")"
+rm -rf "$D" "$T"
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (59/59)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi

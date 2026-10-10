@@ -37,7 +37,17 @@ fi
 # A role that self-blocked on grilling asked a QUESTION rather than producing an artifact, so it
 # owes no audit. Only a line that IS the status counts: comment lines are stripped and the match is
 # anchored, so a question in .gate quoting the phrase must never suppress a real debt.
-GATE="${CLAUDE_PROJECT_DIR:-$PWD}/.gate"
+# Only THIS session's gate and the shared legacy .gate are read: another session's blocked gate must
+# not suppress this session's debt. A blocked legacy .gate gates every session, so it counts for all.
+GATES=("${CLAUDE_PROJECT_DIR:-$PWD}/.gate")
+[ "$PER_SESSION" = 1 ] && GATES+=("$sdir/gate")
+self_blocked() {
+  local g
+  for g in "${GATES[@]}"; do
+    [ -f "$g" ] && grep -vE '^[[:space:]]*#' "$g" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked' && return 0
+  done
+  return 1
+}
 
 case "$agent" in
   plan|build|review)                                 # a role finished -> one more audit owed
@@ -47,7 +57,7 @@ case "$agent" in
     # The check belongs HERE, inside the role branch — never before the case, or it skips the
     # clearing branch too and an auditor can never pay off the debt it just discharged. The
     # selftest case "auditor not suppressed by a blocked .gate" is what stops that coming back.
-    if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked'; then exit 0; fi
+    if self_blocked; then exit 0; fi
     # ONE OPEN ENTRY PER SUBAGENT, keyed on agent_id. A role that hands back more than once for the
     # same artifact (it paused for the human, or was re-dispatched) updates its open entry instead of
     # adding a second. Two slices are two different agent_ids and still owe two audits; after a

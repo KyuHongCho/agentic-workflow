@@ -20,14 +20,19 @@ case "$payload" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exi
 # Deadlock guard: while the grilling gate is 'blocked', auditors cannot run Bash/Edit
 # (gate-check.sh blocks those inside subagents too), so demanding an audit now would
 # livelock the turn. At that point the human owes an answer, not the agent.
-GATE="$ROOT/.gate"
-if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked'; then exit 0; fi
-
-# Enforce only THIS session's ledger. No usable session id -> the shared legacy ledger plus every
-# per-session one: the debt may belong to this very session under an id this payload failed to carry.
+# Only THIS session's gate and the shared legacy .gate stand it down: another session's blocked gate
+# gates that session's tools, not ours, so ours still owes its audit.
 session_id=$(printf '%s' "$payload" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("session_id") or "")' 2>/dev/null)
 sdir=""
 [ "${USE_LEGACY:-}" = 1 ] || sdir=$(sid_dir "$session_id")
+GATES=("$ROOT/.gate")
+[ -n "$sdir" ] && GATES+=("$sdir/gate")
+for GATE in "${GATES[@]}"; do
+  if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked'; then exit 0; fi
+done
+
+# Enforce only THIS session's ledger. No usable session id -> the shared legacy ledger plus every
+# per-session one: the debt may belong to this very session under an id this payload failed to carry.
 LEDGERS=()
 NOID=0
 if [ "${USE_LEGACY:-}" = 1 ]; then
