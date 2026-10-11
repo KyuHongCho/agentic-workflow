@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# The HUMAN runs this (from the project root, in a normal terminal) to list audit debt and to drop a
-# stale entry — one whose role handed back without producing an artifact. The agent must never run it:
-# an agent that can retire its own audit debt is not gated. Debt lives in one ledger per session,
-# .agentic/<session_id>/audit-pending, plus the shared legacy .audit-pending that a pre-session install
-# (or a payload with no session id) wrote; no session needs naming, because agent ids are unique.
+# The HUMAN runs this (from the project root, in a normal terminal) to list debt and drop a stale
+# entry — one whose role handed back without producing an artifact. The agent must never run it:
+# an agent that can retire its own audit debt is not gated. Debt is one ledger per session plus the
+# legacy .audit-pending; agent ids are unique, so no session needs naming.
 # Entries are dropped BY agent_id, never by line position, so the wrong role cannot be cleared by a
 # miscount. A LEGACY entry predating the metadata has no agent_id, so it is dropped by ROLE NAME
 # instead — those really are interchangeable bare names, and refusing to clear them would leave
 # hand-editing as the only exit.
-# `--prune [days]` (default 14) deletes session folders that hold nothing: see the block below.
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 LEGACY="$ROOT/.audit-pending"
 

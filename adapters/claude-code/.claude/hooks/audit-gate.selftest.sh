@@ -10,10 +10,8 @@
 # sanctioned way to retire a debt WITHOUT an audit, which is enforcement surface like the hooks.
 # The first two fail in silence; the third loudly but wrongly — the debt sticks.
 #
-# A seventh thing, at the end of the file, is the per-session ledger.
-# It pins the isolation between sessions and every fallback around it.
-# An eighth, after it, is the per-session grilling gate those hooks stand down on.
-# A ninth, last, is bin/audit-clear's age column and --prune.
+# After those, in order: the per-session ledger and its fallbacks, the per-session grilling gate those
+# hooks stand down on, and bin/audit-clear's age column and --prune.
 #
 #   bash audit-gate.selftest.sh
 #
@@ -284,10 +282,8 @@ ck "Stop with no id enforces .agentic/*, names the exit" "2|1" "$rc|$(printf '%s
 ck "an id that is not [A-Za-z0-9_-]+ counts as no id"   2 "$(stop_rc "$D" '../sB')"
 rm -rf "$D"
 
-# The helper is a single point of failure, so each hook must reject it as a whole when it is missing,
-# truncated, or has a syntax error after its first function (which stays defined and would return a
-# bogus dir if a hook called it). Fallback = the shared ledger, never a path built from an empty var.
-# AGENTIC_SS_LOADED=1 is exported to prove the hook unsets a stale parent value before sourcing.
+# Each hook must reject a missing, truncated or syntax-broken helper as a whole and fall back to the shared
+# ledger, never a path built from an empty var. AGENTIC_SS_LOADED=1 is exported to prove it unsets a stale one.
 helper_variant () {   # $1 label | $2 missing|truncated|syntax
   D=$(mktemp -d); T=$(mktemp -d); cp "$AGATE" "$ATRACK" "$T/"
   case "$2" in
@@ -439,4 +435,41 @@ out=$(CLAUDE_PROJECT_DIR="$D" bash "$ACLEAR" 2>&1)
 ck "nothing owed and nothing blocked: the old message"  "No outstanding audit debt under $D." "$out"
 rm -rf "$D"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (74/74)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi
+# Wiring: each script settings.json registers, resolved via an install-style hooks symlink, and the sourced
+# session-state.sh must parse; prints problems. Copied into all three selftests, which stand alone.
+# Blind spot: a Claude Code started where .claude/settings.json is not this one registers no hook at all.
+wiring_problems () {
+  local hd P p
+  hd="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  P=$(mktemp -d); trap 'rm -rf "$P"; exit 130' INT TERM
+  mkdir "$P/.claude"; ln -s "$hd" "$P/.claude/hooks"
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in
+      '!'*) echo "${p#!}"; continue ;;
+    esac
+    if [ ! -f "$p" ] || [ ! -r "$p" ]; then echo "not a readable file: ${p#$P/}"
+    elif ! bash -n "$p" 2>/dev/null; then echo "syntax error: ${p#$P/}"; fi
+  done <<EOT
+$(python3 -c 'import json,shlex,sys
+n=0
+pre="$CLAUDE_PROJECT_DIR/.claude/hooks/"
+for g in json.load(open(sys.argv[1]))["hooks"].values():
+    for m in g:
+        for h in m["hooks"]:
+            n+=1; t=shlex.split(h["command"])
+            if len(t)==2 and t[0]=="bash" and t[1].startswith(pre) and t[1].endswith(".sh") and len(t[1])>len(pre)+3:
+                print(t[1].replace("$CLAUDE_PROJECT_DIR",sys.argv[2]))
+            else: print("!unrecognised hook command: "+repr(h["command"]))
+if n==0: print("!no hook registered")' "$hd/../settings.json" "$P" 2>&1 || echo "!settings.json unreadable")
+EOT
+  p="$P/.claude/hooks/session-state.sh"
+  if [ ! -f "$p" ]; then echo "helper missing: session-state.sh"
+  elif ! bash -n "$p" 2>/dev/null; then echo "helper syntax error: session-state.sh"
+  elif ! tail -n 1 "$p" | grep -q '^AGENTIC_SS_LOADED=1\([[:space:]]\|$\)'; then echo "helper lacks the AGENTIC_SS_LOADED=1 last line"; fi
+  trap - INT TERM; rm -rf "$P"
+}
+
+ck "wiring: settings.json scripts + helper" "" "$(wiring_problems | tr '\n' ';')"
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (75/75)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi

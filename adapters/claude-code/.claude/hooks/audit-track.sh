@@ -35,10 +35,8 @@ if [ "${USE_LEGACY:-}" != 1 ]; then
 fi
 
 # A role that self-blocked on grilling asked a QUESTION rather than producing an artifact, so it
-# owes no audit. Only a line that IS the status counts: comment lines are stripped and the match is
-# anchored, so a question in .gate quoting the phrase must never suppress a real debt.
-# Only THIS session's gate and the shared legacy .gate are read: another session's blocked gate must
-# not suppress this session's debt. A blocked legacy .gate gates every session, so it counts for all.
+# owes no audit. Only a line that IS the status counts (comments stripped, match anchored), so a
+# quoted phrase never suppresses a debt. Only this session's gate and the legacy .gate are read.
 GATES=("${CLAUDE_PROJECT_DIR:-$PWD}/.gate")
 [ "$PER_SESSION" = 1 ] && GATES+=("$sdir/gate")
 self_blocked() {

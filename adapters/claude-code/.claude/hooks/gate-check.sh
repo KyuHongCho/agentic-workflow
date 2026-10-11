@@ -6,10 +6,9 @@
 # ship-gate.sh uses (:10-11) and for the same reason: the agent cannot forge that prompt, so
 # "only a human clears the gate" still holds. Where a prompt would NOT be shown, this falls back to
 # exit 2, because an unshown prompt is not an answer (ship-gate.sh:105-116).
-# No `set -e` here: under it a missing helper below would end the hook silently on bash 3.2.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 unset AGENTIC_SS_LOADED
-. "$HERE/session-state.sh" 2>/dev/null || true
+. "$HERE/session-state.sh" 2>/dev/null || true   # no set -e: it would end the hook silently here on bash 3.2
 if [ "${AGENTIC_SS_LOADED:-}" != 1 ]; then
   # Helper missing or truncated: use the shared .gate. Key only on USE_LEGACY and an empty sid_dir,
   # never on any other helper function -- a half-loaded helper may define some of them.

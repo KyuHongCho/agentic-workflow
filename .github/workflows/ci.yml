@@ -26,22 +26,25 @@ jobs:
         run: python3 -c "import json; json.load(open('adapters/claude-code/.claude/settings.json'))"
 
       - name: ship-gate self-test
-        # 14 cases: ask / block / pass. The gate fails OPEN if its file is
+        # 15 cases: ask / block / pass. The gate fails OPEN if its file is
         # missing or broken, so this self-test is how we know it is live.
+        # The last case is wiring: every script settings.json registers, plus the
+        # session-state.sh helper, must exist and pass bash -n (same case in all three).
         run: bash adapters/claude-code/.claude/hooks/ship-gate.selftest.sh
 
       - name: grilling-gate self-test
-        # 68 cases: pass / ask / block, four gate-clear scenarios, and two that
+        # 69 cases: pass / ask / block, four gate-clear scenarios, and two that
         # pin the gate-file parse; then the per-session gates (isolation between
         # two sessions, the legacy .gate, the env-var fallback, a missing or broken
         # session-state.sh) and bin/unblock. Same reason as above — a missing or
         # broken hook exits 127, which does not block, so this gate fails OPEN too.
         # The last cases pin bin/unblock's age column and the SessionStart hook
-        # (one line for another session's leftovers, silent on compact, never writes).
+        # (one line for another session's leftovers, silent on compact, never writes),
+        # then the wiring case (settings.json scripts and session-state.sh exist and parse).
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
 
       - name: audit-gate self-test
-        # 74 cases: the .gate parse both hooks share, a subagent's own report
+        # 75 cases: the .gate parse both hooks share, a subagent's own report
         # never acting as control, where the suppression branch sits, and a
         # fourth set driving inputs the others never reach (a non-build role,
         # its auditor, a two-entry ledger, an absent .gate, a nested
@@ -56,5 +59,6 @@ jobs:
         # fallbacks for a missing id and for a missing or broken session-state.sh, and
         # audit-clear across sessions; 8 pin that a session's grilling gate
         # stands down only its own Stop and never suppresses another session's debt;
-        # the last 15 pin audit-clear's age column and --prune.
+        # 15 pin audit-clear's age column and --prune; the last is the wiring case
+        # (settings.json scripts and session-state.sh exist and parse).
         run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh

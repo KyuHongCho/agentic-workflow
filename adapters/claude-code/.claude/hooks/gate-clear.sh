@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 # PostToolUse hook (Claude Code). Releases the grilling gate once a mutating tool has ACTUALLY run
 # — but ONLY when gate-check.sh recorded that a human was prompted about *this exact* gate.
-# The `gate-asked` marker beside each gate holds a sha256 of the gate file as it stood when the
-# prompt was raised. The gate is this session's own (.agentic/<session_id>/gate) or the legacy .gate.
+# The `gate-asked` marker beside this session's (or the legacy) gate holds a sha256 of it as it stood when prompted.
 #
 # The marker is what makes this safe. Without it, this would wipe the gate the agent itself just
 # set: the agent's own `echo 'status: blocked' > .gate` is a successful Bash call and PostToolUse
 # fires on it. Matching the checksum, not merely the marker's presence, also stops an approval of a
 # gate *edit* (adding a question) from being read as an approval to release.
-# No `set -e` here: under it a missing helper below would end the hook silently on bash 3.2.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 unset AGENTIC_SS_LOADED
-. "$HERE/session-state.sh" 2>/dev/null || true
+. "$HERE/session-state.sh" 2>/dev/null || true   # no set -e: it would end the hook silently here on bash 3.2
 if [ "${AGENTIC_SS_LOADED:-}" != 1 ]; then
   # Helper missing or truncated: use the shared .gate. Key only on USE_LEGACY and an empty sid_dir,
   # never on any other helper function -- a half-loaded helper may define some of them.

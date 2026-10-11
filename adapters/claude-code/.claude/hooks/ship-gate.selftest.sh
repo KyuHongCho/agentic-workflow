@@ -45,4 +45,43 @@ check "main: gh pr view"            pass  "{$M,\"tool_input\":{\"command\":\"gh 
 check "subagent: run tests"         pass  "{$S,\"tool_input\":{\"command\":\"python3 -m unittest discover\"}}"
 check "malformed payload"           pass  "not json at all"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (14/14)"; else echo "$fails FAILURE(S) — you do not have a working shipping gate"; exit 1; fi
+# Wiring: each script settings.json registers, resolved via an install-style hooks symlink, and the sourced
+# session-state.sh must parse; prints problems. Copied into all three selftests, which stand alone.
+# Blind spot: a Claude Code started where .claude/settings.json is not this one registers no hook at all.
+wiring_problems () {
+  local hd P p
+  hd="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  P=$(mktemp -d); trap 'rm -rf "$P"; exit 130' INT TERM
+  mkdir "$P/.claude"; ln -s "$hd" "$P/.claude/hooks"
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in
+      '!'*) echo "${p#!}"; continue ;;
+    esac
+    if [ ! -f "$p" ] || [ ! -r "$p" ]; then echo "not a readable file: ${p#$P/}"
+    elif ! bash -n "$p" 2>/dev/null; then echo "syntax error: ${p#$P/}"; fi
+  done <<EOT
+$(python3 -c 'import json,shlex,sys
+n=0
+pre="$CLAUDE_PROJECT_DIR/.claude/hooks/"
+for g in json.load(open(sys.argv[1]))["hooks"].values():
+    for m in g:
+        for h in m["hooks"]:
+            n+=1; t=shlex.split(h["command"])
+            if len(t)==2 and t[0]=="bash" and t[1].startswith(pre) and t[1].endswith(".sh") and len(t[1])>len(pre)+3:
+                print(t[1].replace("$CLAUDE_PROJECT_DIR",sys.argv[2]))
+            else: print("!unrecognised hook command: "+repr(h["command"]))
+if n==0: print("!no hook registered")' "$hd/../settings.json" "$P" 2>&1 || echo "!settings.json unreadable")
+EOT
+  p="$P/.claude/hooks/session-state.sh"
+  if [ ! -f "$p" ]; then echo "helper missing: session-state.sh"
+  elif ! bash -n "$p" 2>/dev/null; then echo "helper syntax error: session-state.sh"
+  elif ! tail -n 1 "$p" | grep -q '^AGENTIC_SS_LOADED=1\([[:space:]]\|$\)'; then echo "helper lacks the AGENTIC_SS_LOADED=1 last line"; fi
+  trap - INT TERM; rm -rf "$P"
+}
+
+w=$(wiring_problems)
+if [ -z "$w" ]; then printf '  ok    %-46s -> %s\n' "wiring: settings.json scripts + helper" wired
+else printf '  FAIL  %-46s -> %s\n' "wiring: settings.json scripts + helper" "$(echo "$w" | tr '\n' ';')"; fails=$((fails+1)); fi
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (15/15)"; else echo "$fails FAILURE(S) — you do not have a working shipping gate"; exit 1; fi

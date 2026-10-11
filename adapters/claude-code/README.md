@@ -20,11 +20,17 @@ else
   ln -s "$ADP/agents"                .claude/agents    # agents sits BESIDE .claude, not inside it
   ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
   [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n.agentic/\n' >> .git/info/exclude
-  bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (14/14)
-  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (68/68)
-  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (74/74)
+  bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (15/15)
+  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (69/69)
+  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (75/75)
 fi
 ```
+
+Each selftest ends with a wiring case that turns red when a script `settings.json` registers (or `session-state.sh`) is missing, a broken symlink, or fails `bash -n`.
+It checks this repo's own `settings.json` and scripts, and cannot detect a Claude Code started from a directory whose `.claude/settings.json` is not this one, where no hook is registered at all.
+
+An install made before per-session state lacks `.agentic/` in its exclude list, so `git add -A` could stage ledgers and gates.
+From the project root, add it once with `grep -qxF '.agentic/' .git/info/exclude || echo '.agentic/' >> .git/info/exclude` (it appends only once).
 
 Keep `.claude/` a **real directory** with symlinks inside, as above. Symlinking `.claude` itself sends
 Claude Code's per-project writes (e.g. `worktrees/`) into this repo.

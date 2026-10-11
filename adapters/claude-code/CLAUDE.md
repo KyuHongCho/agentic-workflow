@@ -100,6 +100,7 @@ A Stop payload with no usable id enforces the legacy file and every session's le
 `audit-clear <agent_id>` is then the only exit from a ledger that belongs to another session.
 **Upgrade note:** a legacy `.audit-pending` is no longer enforced for a session that carries an id,
 so debt outstanding when you upgrade stops being enforced; `audit-clear` still lists it.
+An install made before per-session state must also add `.agentic/` to its `.git/info/exclude`, or `git add -A` can stage ledgers and gates; from the project root run `grep -qxF '.agentic/' .git/info/exclude || echo '.agentic/' >> .git/info/exclude` (it appends only once).
 The helper `.claude/hooks/session-state.sh` holds the session-id check and paths; if it is missing or broken, both hooks fall back to the legacy file.
 
 The audit gate stands down while *this session's* grilling gate (or the shared legacy `.gate`) is `blocked` — at that point the human owes an answer,
@@ -115,7 +116,7 @@ never edit a ledger file yourself.
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (74/74)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (75/75)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
@@ -162,7 +163,7 @@ releases the gate.
 
 **This gate fails OPEN if either script is missing** — a broken `.claude/hooks` symlink makes the
 hook exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (68/68)`.
+`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (69/69)`.
 
 ### Stale state from other sessions
 `/clear` and `--fork-session` give the conversation a new session id, so the old id's ledger and gate stay behind under `.agentic/<old id>/`.
@@ -205,7 +206,7 @@ nothing, and the push they would need is gated.
 
 **This gate fails OPEN if its script is missing** — a broken `.claude/hooks` symlink makes the hook
 exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (14/14)`.
+`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (15/15)`.
 
 **It also fails open if it is never wired.** Hooks load from the **project root's**
 `.claude/settings.json` — the directory Claude Code was started in. A repo's own `.claude/` is inert
@@ -213,6 +214,9 @@ unless that repo *is* the project root: open a parent directory instead and ever
 silently inactive, with the `CLAUDE.md` instructions still loading normally. You get the rules
 without the enforcement. `ship-gate.selftest.sh` cannot detect this — it tests the script, not
 whether it is registered — so check `.claude/settings.json` exists at the directory you started in.
+Each of the three selftests ends with a wiring case.
+It reads this repo's own `settings.json`, resolves every registered script through a `.claude/hooks` symlink, and goes red if one is missing, unreadable, or fails `bash -n`, or if `session-state.sh` is missing, fails `bash -n`, or does not end with its `AGENTIC_SS_LOADED=1` line.
+It cannot detect a Claude Code started from a directory whose `.claude/settings.json` is not this one, because no hook is registered there at all.
 
 **Editing `ship-gate.sh` can lock out Bash.** A shell syntax error makes it exit 2, which blocks the
 tool call, so *every* Bash call fails while the file is broken (the matcher is `Bash`). `Edit`/`Write`
