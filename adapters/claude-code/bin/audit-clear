@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
-# The HUMAN runs this (from the project root, in a normal terminal) to list debt and drop a stale
-# entry — one whose role handed back without producing an artifact. The agent must never run it:
-# an agent that can retire its own audit debt is not gated. Debt is one ledger per session plus the
-# legacy .audit-pending; agent ids are unique, so no session needs naming.
-# Entries are dropped BY agent_id, never by line position, so the wrong role cannot be cleared by a
-# miscount. A LEGACY entry predating the metadata has no agent_id, so it is dropped by ROLE NAME
-# instead — those really are interchangeable bare names, and refusing to clear them would leave
-# hand-editing as the only exit.
+# The HUMAN runs this (normal terminal, project root) to list debt and drop a stale entry; an agent
+# that could retire its own audit debt would not be gated. Entries drop BY agent_id, never by line
+# position; a legacy entry has no agent_id, so it drops by role name (hand-editing is the only other exit).
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 LEGACY="$ROOT/.audit-pending"
 
@@ -106,6 +101,7 @@ if [ $# -eq 0 ] || [ -z "$1" ]; then
   done
   [ "$owed" = 1 ] || exit 0
   echo; echo "Drop one with:  $0 <agent_id>"
+  echo "Only one session:  $0 --session <sid> [<agent_id>]"
   [ "$legacy" = 1 ] && echo "                $0 <role>          for an entry with no agent id"
   echo "Drop it only if that role handed back WITHOUT producing an artifact."
   echo "An auditor clears the OLDEST entry for its role, so if a role's slices were audited out of"

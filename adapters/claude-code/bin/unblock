@@ -3,7 +3,6 @@
 # after answering the agent's questions.
 # The agent cannot run this itself while blocked — Write/Edit/Bash are gated. That is the point:
 # only a human can release the gate, so a human confirmation is structurally required.
-# Usage: unblock [<sid> | --legacy | --all]  (no argument: list; clear only if exactly one is blocked)
 # No `set -e`: a missing gate must fall through to a message, not end the script silently.
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 

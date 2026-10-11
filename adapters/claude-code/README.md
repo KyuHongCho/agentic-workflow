@@ -21,12 +21,12 @@ else
   ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
   [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n.agentic/\n' >> .git/info/exclude
   bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (15/15)
-  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (69/69)
-  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (75/75)
+  bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (70/70)
+  bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (76/76)
 fi
 ```
 
-Each selftest ends with a wiring case that turns red when a script `settings.json` registers (or `session-state.sh`) is missing, a broken symlink, or fails `bash -n`.
+Each selftest ends with a wiring case that turns red when a script `settings.json` registers (or `session-state.sh`) is missing, a broken symlink, or fails `bash -n`, or when `session-state.sh` does not end with its `AGENTIC_SS_LOADED=1` line.
 It checks this repo's own `settings.json` and scripts, and cannot detect a Claude Code started from a directory whose `.claude/settings.json` is not this one, where no hook is registered at all.
 
 An install made before per-session state lacks `.agentic/` in its exclude list, so `git add -A` could stage ledgers and gates.

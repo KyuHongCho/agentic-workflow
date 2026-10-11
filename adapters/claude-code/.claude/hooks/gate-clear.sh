@@ -32,7 +32,7 @@ sdir=""
 release() {   # $1 gate file | $2 its prompt receipt
   local GATE="$1" MARK="$2" now qs
   [ -f "$GATE" ] && [ -f "$MARK" ] || return 0
-  grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked' || { rm -f "$MARK"; return 0; }
+  [ "$(grep -vE '^[[:space:]]*#' "$GATE" | grep -oE '^[[:space:]]*status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')" = blocked ] || { rm -f "$MARK"; return 0; }
   now=$(GATE_FILE="$GATE" python3 -c 'import hashlib,os;print(hashlib.sha256(open(os.environ["GATE_FILE"],"rb").read()).hexdigest())' 2>/dev/null)
   [ -n "$now" ] && [ "$now" = "$(head -1 "$MARK")" ] || return 0
   qs=$(grep -E '^[[:space:]]*#' "$GATE")     # keep the questions as a record of what was released

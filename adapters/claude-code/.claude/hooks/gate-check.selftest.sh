@@ -150,6 +150,11 @@ D=$(mktemp -d); gate_at sA 'status: done\n'; run_hook "$D" "$(pl sA)" >/dev/null
 clear_as "$D" "$(pl sA)"
 ck "agent-set per-session gate is not wiped by gate-clear" blocked "$(state "$D/.agentic/sA/gate")"
 rm -rf "$D" "$D.err"
+D=$(mktemp -d); gate_at sA 'status: done\n# Q1\nstatus: blocked\n# Q2\n'; before=$(cat "$D/.agentic/sA/gate")
+python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$D/.agentic/sA/gate" > "$D/.agentic/sA/gate-asked"
+clear_as "$D" "$(pl sA)"
+ck "two-status gate, first is done: gate-clear leaves it alone" same "$([ "$(cat "$D/.agentic/sA/gate")" = "$before" ] && echo same || echo rewritten)"
+rm -rf "$D" "$D.err"
 
 # A legacy blocked .gate still gates a session that has an id, and is releasable by it.
 D=$(mktemp -d); printf 'status: blocked\n# L1\n' > "$D/.gate"
@@ -334,4 +339,4 @@ EOT
 
 ck "wiring: settings.json scripts + helper" "" "$(wiring_problems | tr '\n' ';')"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (69/69)"; else echo "$fails FAILURE(S) — you do not have a working grilling gate"; exit 1; fi
+if [ "$fails" = "0" ]; then echo "ALL PASS (70/70)"; else echo "$fails FAILURE(S) — you do not have a working grilling gate"; exit 1; fi

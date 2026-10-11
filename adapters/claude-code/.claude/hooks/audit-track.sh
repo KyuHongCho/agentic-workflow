@@ -2,10 +2,9 @@
 # SubagentStop hook (Claude Code). Keeps score of the audit loop: records that a role ran
 # (an audit is now owed) and clears the debt when the matching auditor runs.
 # Never blocks anything — audit-gate.sh does the enforcing.
-# No `set -e` here: under it a missing helper below would end the hook silently on bash 3.2.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 unset AGENTIC_SS_LOADED
-. "$HERE/session-state.sh" 2>/dev/null || true
+. "$HERE/session-state.sh" 2>/dev/null || true   # no set -e: it would end the hook silently here on bash 3.2
 if [ "${AGENTIC_SS_LOADED:-}" != 1 ]; then
   # Helper missing or truncated: fall back to the shared ledger. Key only on USE_LEGACY and an empty
   # sid_dir, never on any other helper function -- a half-loaded helper may define some of them.
@@ -42,7 +41,7 @@ GATES=("${CLAUDE_PROJECT_DIR:-$PWD}/.gate")
 self_blocked() {
   local g
   for g in "${GATES[@]}"; do
-    [ -f "$g" ] && grep -vE '^[[:space:]]*#' "$g" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked' && return 0
+    [ -f "$g" ] && [ "$(grep -vE '^[[:space:]]*#' "$g" | grep -oE '^[[:space:]]*status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')" = blocked ] && return 0
   done
   return 1
 }

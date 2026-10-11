@@ -358,6 +358,12 @@ gate_for sA 'status: done\n# Q1 keep "status: blocked"?\n'
 ck "A's done gate (question quotes the phrase) does not stand down" 2 "$(stop_rc "$D" sA)"
 rm -rf "$D"
 
+D=$(mktemp -d)
+gate_for sX 'status: done\n# Q1\n# released by human approval\nstatus: blocked\n# Q2\n'
+payload build X1 sX | CLAUDE_PROJECT_DIR="$D" bash "$ATRACK" >/dev/null 2>&1
+ck "two-status gate, first is done: debt recorded, Stop refused" "build|2" "$(ledger_of "$D/.agentic/sX/audit-pending")|$(stop_rc "$D" sX)"
+rm -rf "$D"
+
 # With the helper rejected both hooks are legacy-only: a per-session gate is not read, so it neither
 # stands the Stop down nor suppresses a role's debt.
 D=$(mktemp -d); T=$(mktemp -d); cp "$AGATE" "$ATRACK" "$T/"
@@ -472,4 +478,4 @@ EOT
 
 ck "wiring: settings.json scripts + helper" "" "$(wiring_problems | tr '\n' ';')"
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (75/75)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi
+if [ "$fails" = "0" ]; then echo "ALL PASS (76/76)"; else echo "$fails FAILURE(S) — the audit gate can be skipped silently"; exit 1; fi

@@ -26,7 +26,7 @@ sdir=""
 GATES=("$ROOT/.gate")
 [ -n "$sdir" ] && GATES+=("$sdir/gate")
 for GATE in "${GATES[@]}"; do
-  if [ -f "$GATE" ] && grep -vE '^[[:space:]]*#' "$GATE" | grep -qE '^[[:space:]]*status:[[:space:]]*blocked'; then exit 0; fi
+  if [ -f "$GATE" ] && [ "$(grep -vE '^[[:space:]]*#' "$GATE" | grep -oE '^[[:space:]]*status:[[:space:]]*(done|blocked)' | head -1 | awk '{print $2}')" = blocked ]; then exit 0; fi
 done
 
 # Enforce only THIS session's ledger. No usable session id -> the shared legacy ledger plus every

@@ -109,14 +109,14 @@ grilling records a debt depends on that gate when its `SubagentStop` fires, so a
 possible — but every entry now names its role, the `agent_id` that recorded it and the UTC time, so you can
 say *which* hand-back it came from and whether an artifact exists behind it. If none does, say so and ask
 the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`
-(no session argument needed: it lists debt per session, legacy first, and drops the entry from whichever ledger holds it);
+(no session argument needed: it lists debt per session, legacy first, and drops the entry from whichever ledger holds it; `--session <sid>` narrows it to one session);
 never edit a ledger file yourself.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (75/75)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (76/76)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
@@ -153,17 +153,18 @@ Otherwise the human names it: `unblock <session_id>`, `unblock --legacy` (the sh
 
 Sessions do not share a gate.
 Another session's blocked gate neither gates your tools nor stands down your audit gate, and one approval releases only the session it was raised for.
-A payload with no usable `session_id` falls back to `$CLAUDE_CODE_SESSION_ID`, then to the shared legacy `.gate`.
+`gate-check.sh`, `gate-clear.sh` and `session-start-warn.sh` fall back to `$CLAUDE_CODE_SESSION_ID`, then to the shared legacy `.gate`, when the payload has no usable `session_id`.
+The audit hooks (`audit-gate.sh`, `audit-track.sh`) use the payload id only.
 A blocked legacy `.gate` still gates every session and any session's approval releases it.
-If a session finds no gate of its own but another session has a blocked one, `gate-check.sh` prints one note line to stderr and never blocks.
-That note usually means the gate was written under an id the hooks do not see, so rewrite it under `$CLAUDE_CODE_SESSION_ID`.
+If a session finds no gate of its own but another session has a blocked one, `gate-check.sh` writes one note line to stderr and never blocks.
+Claude Code shows that line to neither you nor the model, so if a gate you wrote seems ignored, check that it sits under `.agentic/$CLAUDE_CODE_SESSION_ID/gate`.
 
 While blocked you can still read, search, and ask — you just cannot change code until the human
 releases the gate.
 
 **This gate fails OPEN if either script is missing** — a broken `.claude/hooks` symlink makes the
 hook exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (69/69)`.
+`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (70/70)`.
 
 ### Stale state from other sessions
 `/clear` and `--fork-session` give the conversation a new session id, so the old id's ledger and gate stay behind under `.agentic/<old id>/`.
