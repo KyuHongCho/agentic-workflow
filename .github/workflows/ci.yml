@@ -17,7 +17,7 @@ jobs:
         # non-zero at load time, which for gate-check/ship-gate means the gate
         # silently fails OPEN — so this is a real safety check, not lint.
         run: |
-          for f in $(git ls-files '*.sh') adapters/claude-code/bin/unblock; do
+          for f in $(git ls-files '*.sh') adapters/claude-code/bin/unblock adapters/claude-code/bin/audit-clear; do
             bash -n "$f"
           done
 
@@ -26,26 +26,14 @@ jobs:
         run: python3 -c "import json; json.load(open('adapters/claude-code/.claude/settings.json'))"
 
       - name: ship-gate self-test
-        # 14 cases: ask / block / pass. The gate fails OPEN if its file is
-        # missing or broken, so this self-test is how we know it is live.
+        # The gate fails OPEN if its file is missing or broken, so this self-test is how we know it is live.
+        # The last case, shared by all three self-tests, checks that every script settings.json registers and session-state.sh exist and parse.
         run: bash adapters/claude-code/.claude/hooks/ship-gate.selftest.sh
 
       - name: grilling-gate self-test
-        # 18 cases: pass / ask / block, four gate-clear scenarios, and two that
-        # pin the gate-file parse. Same reason as above — a missing or broken
-        # hook exits 127, which does not block, so this gate fails OPEN too.
+        # A missing or broken hook exits 127, which does not block, so this gate fails OPEN too.
         run: bash adapters/claude-code/.claude/hooks/gate-check.selftest.sh
 
       - name: audit-gate self-test
-        # 30 cases: the .gate parse both hooks share, a subagent's own report
-        # never acting as control, where the suppression branch sits, and a
-        # fourth set driving inputs the others never reach (a non-build role,
-        # its auditor, a two-entry ledger, an absent .gate, a nested
-        # agent_type) that asserts the ledger's contents, so a wrong NAME
-        # cannot hide behind a plausible count. Most of these skip the audit
-        # loop silently; one jams a discharged debt in the ledger — so it
-        # needs its own proof that it still trips. The remaining cases: the agent_id keying that
-        # tells a resumed role from a second slice, the gate message still naming an entry whose
-        # ledger line has no trailing newline, and the UTC stamp each entry promises; and
-        # bin/audit-clear, the only sanctioned way to retire a debt without an audit.
+        # Same reason: this is how we know the audit loop cannot be skipped silently.
         run: bash adapters/claude-code/.claude/hooks/audit-gate.selftest.sh

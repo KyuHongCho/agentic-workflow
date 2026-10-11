@@ -88,22 +88,35 @@ escalated without a `PASS`, write nothing. Writing it is not shipping: it commit
 
 ## Hard-enforced audit gate (Claude Code only)
 A `SubagentStop` hook (`.claude/hooks/audit-track.sh`) records which roles have run and which audits are
-still owed, in `${CLAUDE_PROJECT_DIR}/.audit-pending`. A `Stop` hook (`.claude/hooks/audit-gate.sh`)
-**refuses to let the turn end** while any audit is outstanding. You cannot skip the loop by forgetting it.
+still owed, in a ledger per session: `${CLAUDE_PROJECT_DIR}/.agentic/<session_id>/audit-pending`.
+A `Stop` hook (`.claude/hooks/audit-gate.sh`)
+**refuses to let the turn end** while any audit is outstanding in *this session's* ledger.
+You cannot skip the loop by forgetting it.
 
-The audit gate stands down while the grilling gate is `blocked` — at that point the human owes an answer,
+Sessions do not share debt.
+Another session's unaudited role does not block your Stop, and its auditor cannot clear yours.
+A payload with no usable `session_id` uses the shared legacy `${CLAUDE_PROJECT_DIR}/.audit-pending`, as before.
+A Stop payload with no usable id enforces the legacy file and every session's ledger, to stay safe.
+`audit-clear <agent_id>` is then the only exit from a ledger that belongs to another session.
+**Upgrade note:** a legacy `.audit-pending` is no longer enforced for a session that carries an id,
+so debt outstanding when you upgrade stops being enforced; `audit-clear` still lists it.
+An install made before per-session state must also add `.agentic/` to its `.git/info/exclude`, or `git add -A` can stage ledgers and gates; from the project root run `grep -qxF '.agentic/' .git/info/exclude || echo '.agentic/' >> .git/info/exclude` (it appends only once).
+The helper `.claude/hooks/session-state.sh` holds the session-id check and paths; if it is missing or broken, both hooks fall back to the legacy file.
+
+The audit gate stands down while *this session's* grilling gate (or the shared legacy `.gate`) is `blocked` — at that point the human owes an answer,
 and auditors could not run anyway (their `Bash`/`Edit` would be gated). Whether a role that self-blocks on
-grilling records a debt depends on `.gate` when its `SubagentStop` fires, so a leftover entry is still
+grilling records a debt depends on that gate when its `SubagentStop` fires, so a leftover entry is still
 possible — but every entry now names its role, the `agent_id` that recorded it and the UTC time, so you can
 say *which* hand-back it came from and whether an artifact exists behind it. If none does, say so and ask
-the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`; never edit
-`.audit-pending` yourself.
+the human to run `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear <agent_id>`
+(no session argument needed: it lists debt per session, legacy first, and drops the entry from whichever ledger holds it; `--session <sid>` narrows it to one session);
+never edit a ledger file yourself.
 
 **This gate fails OPEN if either script is missing, and it fails _silently_** — a broken
 `.claude/hooks` symlink makes the hook exit 127, the `Stop` hook does not block, and the turn simply
 ends with the audit never demanded. Nothing turns red; the only symptom is an audit that never
 happened. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (30/30)`.
+`bash .claude/hooks/audit-gate.selftest.sh` — expect `ALL PASS (76/76)`.
 
 ## Hard-enforced grilling gate (Claude Code only)
 A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.json`) gates
@@ -111,8 +124,10 @@ A PreToolUse hook (`.claude/hooks/gate-check.sh`, wired in `.claude/settings.jso
 prompt, or hard-blocking where no prompt would be shown. To make it bite, **mirror your grilling
 state to the gate file**:
 
-- **When grilling raises an open question** → write `status: blocked` to `${CLAUDE_PROJECT_DIR}/.gate`,
-then **one `# <question>` line per open question**, then ask the human. (You can — you are not yet
+- **When grilling raises an open question** → run `mkdir -p "${CLAUDE_PROJECT_DIR}/.agentic/$CLAUDE_CODE_SESSION_ID"`
+and write `status: blocked` to `${CLAUDE_PROJECT_DIR}/.agentic/$CLAUDE_CODE_SESSION_ID/gate`.
+If `$CLAUDE_CODE_SESSION_ID` is empty, write the legacy `${CLAUDE_PROJECT_DIR}/.gate` instead.
+Then write **one `# <question>` line per open question**, then ask the human. (You can — you are not yet
 blocked.) Those `#` lines are what `gate-check.sh` puts into the approval prompt; without them it
 shows `(gate file lists no questions)` and the human is asked to release a gate whose reason they
 cannot see. Only the status line may begin with `status:` — a question that starts with it would be
@@ -124,7 +139,7 @@ read as the status instead:
   # B2 is items.slug mutable on update?
   ```
 - **Only the human clears the gate — but they now do it in-session.** Your first `Write`/`Edit`/`Bash`
-after blocking raises an approval prompt carrying the open questions; approving it releases the gate
+after blocking raises an approval prompt carrying the open questions; approving it releases *this session's* gate
 (`gate-clear.sh`), declining leaves it shut. You still cannot release it yourself: `gate-clear.sh`
 acts only on a gate `gate-check.sh` recorded a prompt for, so the gate *you* set is never wiped by
 your own tool call. Do **not** route around it (subagents, alternate tools).
@@ -133,13 +148,35 @@ your own tool call. Do **not** route around it (subagents, alternate tools).
 an answer. Then ask in the conversation and the human runs
 `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/unblock` — the install in `README.md` does not
 symlink `bin/`, so there is no `bin/unblock` at the project root.
+With no argument `unblock` lists every blocked gate and its questions, and clears one only when exactly one is blocked.
+Otherwise the human names it: `unblock <session_id>`, `unblock --legacy` (the shared `.gate`) or `unblock --all`.
+
+Sessions do not share a gate.
+Another session's blocked gate neither gates your tools nor stands down your audit gate, and one approval releases only the session it was raised for.
+`gate-check.sh`, `gate-clear.sh` and `session-start-warn.sh` fall back to `$CLAUDE_CODE_SESSION_ID`, then to the shared legacy `.gate`, when the payload has no usable `session_id`.
+The audit hooks (`audit-gate.sh`, `audit-track.sh`) use the payload id only.
+A blocked legacy `.gate` still gates every session and any session's approval releases it.
+If a session finds no gate of its own but another session has a blocked one, `gate-check.sh` writes one note line to stderr and never blocks.
+Claude Code shows that line to neither you nor the model, so if a gate you wrote seems ignored, check that it sits under `.agentic/$CLAUDE_CODE_SESSION_ID/gate`.
 
 While blocked you can still read, search, and ask — you just cannot change code until the human
 releases the gate.
 
 **This gate fails OPEN if either script is missing** — a broken `.claude/hooks` symlink makes the
 hook exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (18/18)`.
+`bash .claude/hooks/gate-check.selftest.sh` — expect `ALL PASS (70/70)`.
+
+### Stale state from other sessions
+`/clear` and `--fork-session` give the conversation a new session id, so the old id's ledger and gate stay behind under `.agentic/<old id>/`.
+A `SessionStart` hook (`.claude/hooks/session-start-warn.sh`) prints one line at `startup`, `clear` and `resume` when another session's folder holds audit debt or a blocked gate, or the legacy `.audit-pending` or `.gate` do.
+It is silent on `/compact` (the id does not change) and when nothing is left by another session, and it never blocks, moves, adopts or deletes anything.
+If you see that line, tell the human and name `$AGENTIC_WORKFLOW_HOME/adapters/claude-code/bin/audit-clear` (lists debt with its age) and `.../bin/unblock` (lists blocked gates with their age); do not touch those files yourself.
+The warning cannot tell a finished session from one running now, so the human checks before clearing anything.
+The human removes folders that hold nothing with `bin/audit-clear --prune [days]` (default 14, at most 99999).
+Prune deletes only a folder with an empty or absent ledger, no blocked gate and no change for at least that many days, and never the legacy files.
+Prune refuses when `.agentic` is itself a symlink.
+A session that writes a ledger in the milliseconds between prune checking a folder and deleting it can lose that entry, which is why only idle folders qualify.
+Nothing prunes automatically.
 
 ## Hard-enforced shipping gate (Claude Code only)
 Publishing is **not** a stage — see `$AGENTIC_WORKFLOW_HOME/core/shared/shipping.md`. A `PreToolUse`
@@ -170,7 +207,7 @@ nothing, and the push they would need is gated.
 
 **This gate fails OPEN if its script is missing** — a broken `.claude/hooks` symlink makes the hook
 exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (14/14)`.
+`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (15/15)`.
 
 **It also fails open if it is never wired.** Hooks load from the **project root's**
 `.claude/settings.json` — the directory Claude Code was started in. A repo's own `.claude/` is inert
@@ -178,6 +215,9 @@ unless that repo *is* the project root: open a parent directory instead and ever
 silently inactive, with the `CLAUDE.md` instructions still loading normally. You get the rules
 without the enforcement. `ship-gate.selftest.sh` cannot detect this — it tests the script, not
 whether it is registered — so check `.claude/settings.json` exists at the directory you started in.
+Each of the three selftests ends with a wiring case.
+It reads this repo's own `settings.json`, resolves every registered script through a `.claude/hooks` symlink, and goes red if one is missing, unreadable, or fails `bash -n`, or if `session-state.sh` is missing, fails `bash -n`, or does not end with its `AGENTIC_SS_LOADED=1` line.
+It cannot detect a Claude Code started from a directory whose `.claude/settings.json` is not this one, because no hook is registered there at all.
 
 **Editing `ship-gate.sh` can lock out Bash.** A shell syntax error makes it exit 2, which blocks the
 tool call, so *every* Bash call fails while the file is broken (the matcher is `Bash`). `Edit`/`Write`
