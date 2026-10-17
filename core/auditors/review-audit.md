@@ -30,7 +30,9 @@ and **blind spots are what this pass exists to catch**.
 Use `../shared/verify.md` for the method
 (re-run tests where relevant; evidence over reasoning; revert any throwaway; report).
 **Running in CI you are read-only**, per `verify.md` — re-run existing tests and read the tree,
-but do not create a test, re-fetch the diff, or chase an external document.
+but do not create a test, re-fetch the diff, or chase an external document (the one lookup
+allowed is the `gh pr view <n> --json title,body` that `agentic-review-audit-guideline.md` requires
+when you are given a PR number).
 Mark what you could not reproduce as **unverified**; a run that exhausts its turns posts no audit at all.
 
 ## Criteria (challenge each)
