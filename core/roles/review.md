@@ -41,7 +41,9 @@ You do not write the file or choose where it goes.
   **Running in CI you are read-only** — you hold no write tool.
   Run the existing tests, read the working tree,
   and mark anything you could not reproduce as **unverified**.
-  Do not try to create a test, re-fetch the diff, or chase an external document:
+  Do not try to create a test, re-fetch the diff, or chase an external document (the one lookup
+  allowed is the `gh pr view <n> --json title,body` that `agentic-review-guideline.md` requires
+  when you are given a PR number):
   each blocked attempt costs a turn, and a run that exhausts its turns reports nothing at all.
 - **If the diff touches comments, docstrings, or documentation (commonly `README.md`/`docs/*.md`, but check the repo's actual layout — see `../checklists/doc-and-comment-hygiene.md` for why), check `../checklists/doc-and-comment-hygiene.md`** — Tier 1 is plain `grep`,
   runnable with the same read-only tools as everything else in this role.
