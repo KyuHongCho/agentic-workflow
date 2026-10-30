@@ -201,13 +201,23 @@ was covered by an earlier review (name it); if none holds (e.g. after *commit fi
 review question, run now or skip, before Q2; ask whether to open the PR and, if yes, run the
 `open-pr` skill. Never bundle the questions, and never treat "build this" as consent to publish it.
 
+`settings.json` also carries `permissions.ask` rules for the verbs above except `gh api` (`git commit`,
+`git push`, `gh pr create|merge|ready`, `gh release create`); `gh api` writes stay hook-only. Claude Code applies
+ask rules whatever the hook returns and, in auto mode, ahead of the classifier, so a prompt (or a denial in
+`dontAsk`) is forced even if the hook is missing or fails open. They match the command text as written, so
+`git -C . push` and `git 'push'` slip past them. The hook still catches `-C . push` and `-c key=val push`, but not
+`git 'push'`, which stays an accepted gap. The rules add to the hook and do not replace it.
+
 Read-only forms (`git status`, `git diff`, `git log`, `git push --dry-run`, `gh pr view|checks`)
-pass through untouched. Local-only `git tag` / `git merge` are deliberately not gated: they publish
+pass through the hook untouched. The ask rules still prompt for `git push --dry-run` and the `--help` and `-h`
+forms of the gated verbs, because a rule cannot say "except".
+
+Local-only `git tag` / `git merge` are deliberately not gated: they publish
 nothing, and the push they would need is gated.
 
 **This gate fails OPEN if its script is missing** — a broken `.claude/hooks` symlink makes the hook
 exit 127, which does not block. After installing, and after ever moving this repo, run:
-`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (15/15)`.
+`bash .claude/hooks/ship-gate.selftest.sh` — expect `ALL PASS (16/16)`.
 
 **It also fails open if it is never wired.** Hooks load from the **project root's**
 `.claude/settings.json` — the directory Claude Code was started in. A repo's own `.claude/` is inert
