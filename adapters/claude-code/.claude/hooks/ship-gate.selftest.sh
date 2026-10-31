@@ -84,4 +84,14 @@ w=$(wiring_problems)
 if [ -z "$w" ]; then printf '  ok    %-46s -> %s\n' "wiring: settings.json scripts + helper" wired
 else printf '  FAIL  %-46s -> %s\n' "wiring: settings.json scripts + helper" "$(echo "$w" | tr '\n' ';')"; fails=$((fails+1)); fi
 
-if [ "$fails" = "0" ]; then echo "ALL PASS (15/15)"; else echo "$fails FAILURE(S) — you do not have a working shipping gate"; exit 1; fi
+# Second layer: native ask rules force a prompt even if the hook is missing or fails open. Every verb the
+# hook gates must have one, except gh api, which stays hook-only.
+ask_missing=$(python3 -c 'import json,sys
+want=["Bash(git commit *)","Bash(git push *)","Bash(gh pr create *)","Bash(gh pr merge *)","Bash(gh pr ready *)","Bash(gh release create *)"]
+try: have=json.load(open(sys.argv[1])).get("permissions",{}).get("ask",[])
+except Exception: have=[]
+print(" ".join(w for w in want if w not in have))' "$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../settings.json" 2>&1)
+if [ -z "$ask_missing" ]; then printf '  ok    %-46s -> %s\n' "settings.json ask rules for shipping verbs" present
+else printf '  FAIL  %-46s -> %s\n' "settings.json ask rules for shipping verbs" "missing: $ask_missing"; fails=$((fails+1)); fi
+
+if [ "$fails" = "0" ]; then echo "ALL PASS (16/16)"; else echo "$fails FAILURE(S) — you do not have a working shipping gate"; exit 1; fi

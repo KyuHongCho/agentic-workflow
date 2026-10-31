@@ -20,7 +20,7 @@ else
   ln -s "$ADP/agents"                .claude/agents    # agents sits BESIDE .claude, not inside it
   ln -s "$ADP/CLAUDE.md"             CLAUDE.local.md
   [ -d .git ] && printf '.claude/\nCLAUDE.local.md\n.gate\n.gate-asked\n.audit-pending\n.agentic/\n' >> .git/info/exclude
-  bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (15/15)
+  bash .claude/hooks/ship-gate.selftest.sh    # expect ALL PASS (16/16)
   bash .claude/hooks/gate-check.selftest.sh   # expect ALL PASS (70/70)
   bash .claude/hooks/audit-gate.selftest.sh   # expect ALL PASS (76/76)
 fi
